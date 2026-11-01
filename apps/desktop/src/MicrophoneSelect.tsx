@@ -5,7 +5,7 @@ import { native } from "./client";
 // Devices are re-read on focus so a headset plugged in later appears without reopening.
 export function MicrophoneSelect({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   const [devices, setDevices] = useState<string[]>([]);
-  const load = () => { if (native) void invoke<string[]>("audio_input_devices").then(setDevices).catch(() => setDevices([])); };
+  const load = () => { if (native) void invoke<string[]>("audio_input_devices").then(list => setDevices(Array.isArray(list) ? list : [])).catch(() => setDevices([])); };
   useEffect(load, []);
   const missing = Boolean(value) && devices.length > 0 && !devices.includes(value);
   return <div className="form-row">
