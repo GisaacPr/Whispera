@@ -5,6 +5,8 @@ export type MonitorInfo = { index: number; name: string | null; x?: number; y?: 
 
 const MAP_WIDTH = 440, MAP_HEIGHT = 170, GAP = 6;
 
+// Mouse clicks reach the selection surface (so a drag can start on a tile);
+// the button itself only handles keyboard activation (detail 0).
 // The monitors drawn as they are arranged in Windows/macOS display settings,
 // so "which screen is which" is answered by position, not by a number.
 export default function MonitorPicker({ monitors, current, busy, onPick }: { monitors: MonitorInfo[]; current: number | null; busy: boolean; onPick: (index: number) => void }) {
@@ -36,8 +38,8 @@ export default function MonitorPicker({ monitors, current, busy, onPick }: { mon
       {monitors.map(m => {
         const tile = { left: ((m.x ?? 0) - left) * scale + GAP / 2, top: ((m.y ?? 0) - top) * scale + GAP / 2, width: m.width * scale - GAP, height: m.height * scale - GAP };
         const roomy = tile.width > 120 && tile.height > 64;
-        return <button key={m.index} disabled={busy} className="monitor-tile" data-current={m.index === current} data-roomy={roomy} style={tile}
-          aria-label={`Pantalla ${m.index + 1}: ${label(m)}, ${m.width} × ${m.height}${m.index === current ? ", esta pantalla" : ""}`} onClick={() => onPick(m.index)}>
+        return <button key={m.index} disabled={busy} className="monitor-tile" data-index={m.index} data-current={m.index === current} data-roomy={roomy} style={tile}
+          aria-label={`Pantalla ${m.index + 1}: ${label(m)}, ${m.width} × ${m.height}${m.index === current ? ", esta pantalla" : ""}`} onClick={e => { if (e.detail === 0) onPick(m.index); }}>
           <b className="monitor-number">{m.index + 1}</b>
           {roomy && <span className="monitor-name">{label(m)}</span>}
           {roomy && <small>{m.width} × {m.height}{m.primary ? " · Principal" : ""}</small>}

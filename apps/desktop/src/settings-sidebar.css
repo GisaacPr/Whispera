@@ -29,7 +29,9 @@
 @media(max-width:640px){.settings-window .settings-sidebar[data-expanded=true] .brand-copy,.settings-window .settings-sidebar[data-expanded=true] .nav-group,.settings-window .settings-sidebar[data-expanded=true] .sidebar-bottom,.settings-window .settings-sidebar[data-expanded=true] nav button span{display:flex}.settings-window .settings-sidebar[data-expanded=true] .nav-group{display:block}.settings-window .settings-sidebar[data-expanded=true] nav button{justify-content:flex-start;padding:9px 10px}.settings-window .settings-sidebar[data-expanded=true] .sidebar-update>span{display:block}.settings-window .settings-sidebar[data-expanded=true] .sidebar-update>svg:last-child{display:block}}
 @media(prefers-reduced-motion:reduce){.settings-sidebar .brand-copy,.settings-sidebar .sidebar-label,.settings-sidebar .sidebar-count{transition:none}}
 /* Liquid sidebar: the SVG under the panel is the panel. */
-.settings-window{--liquid-fill:color-mix(in srgb,var(--app-surface,#10130f) 32%,#060607);--liquid-sheen:#ffffff1f;--liquid-bubble:#ffffff40;--badge:#ef4b4b}
+.settings-window{--liquid-fill:var(--app-surface,#2b2030);--liquid-sheen:color-mix(in srgb,var(--app-ink,#f8edf4) 9%,transparent);--liquid-bubble:color-mix(in srgb,var(--app-ink,#f8edf4) 35%,transparent);--badge:#ef4b4b}
+/* Theme text on the liquid: the theme guarantees contrast against --app-surface. */
+.settings-window .liquid-sidebar .desktop-brand{color:var(--app-ink,#f4f3ef)}
 .liquid-sidebar-host{position:relative;align-self:start;isolation:isolate}
 .liquid-panel{position:absolute;z-index:0;pointer-events:none;filter:drop-shadow(0 18px 28px #0008) drop-shadow(0 2px 5px #0006)}
 .liquid-body{fill:var(--liquid-fill)}

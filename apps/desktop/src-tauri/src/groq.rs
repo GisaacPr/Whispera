@@ -169,6 +169,8 @@ struct PreparedUpload {
     extension: String,
     background: bool,
     silent: bool,
+    /// The recording contains voice-like energy (see `has_speech`).
+    speech: bool,
 }
 
 // Scoped to one immutable incremental part; never persists audio or credentials.
@@ -219,7 +221,7 @@ async fn prepare_upload(path: &Path) -> Result<PreparedUpload, String> {
         .await
         .map_err(|_| "No se pudo leer el audio")?;
     if ext == "wav" && digital_silence(&bytes) {
-        return Ok(PreparedUpload { bytes: Vec::new(), extension: ext, background: false, silent: true });
+        return Ok(PreparedUpload { bytes: Vec::new(), extension: ext, background: false, silent: true, speech: false });
     }
     // Keep every nonzero sample and its original time coordinate. Long digital
     // silence at the end can make Whisper invent a closing phrase. This only
@@ -230,9 +232,11 @@ async fn prepare_upload(path: &Path) -> Result<PreparedUpload, String> {
     // keeps its modulation and is never rejected by volume alone. The retained
     // 200 ms zero tail also preserves the non-stationary classification after trim.
     let stationary_background = ext == "wav" && stationary_background(&bytes);
+    // Imported mp3/m4a/... cannot be measured here; treat them as speech.
+    let speech = ext != "wav" || has_speech(&bytes);
     let (bytes,ext)=crate::lossless_upload::prepare(bytes,ext).await;
     if bytes.is_empty() {return Err("No se pudo preparar el envío. El audio original sigue guardado.".into());}
-    Ok(PreparedUpload { bytes, extension: ext, background: stationary_background, silent: false })
+    Ok(PreparedUpload { bytes, extension: ext, background: stationary_background, silent: false, speech })
 }
 
 async fn request_prepared(prepared: PreparedUpload, settings: &Settings, rules: &[Rule], granularity: Option<&str>) -> Result<serde_json::Value, String> {
@@ -282,6 +286,7 @@ async fn send_prepared(prepared: PreparedUpload, settings: &Settings, rules: &[R
         .map_err(|_| "Groq devolvio una respuesta no valida")?;
     suppress_background_closing(&mut json, prepared.background);
     drop_silent_segments(&mut json);
+    drop_phantom_text(&mut json, prepared.speech);
     Ok(json)
 }
 
@@ -321,6 +326,44 @@ fn silent_segment(segment: &serde_json::Value) -> bool {
     (no_speech > 0.6 && logprob < -1.0)
         || (no_speech > 0.4 && known_hallucination(&text))
         || (no_speech > 0.8 && text.chars().count() <= 2)
+}
+// Voice evidence: at least ~0.3 s of 30 ms frames that are loud enough for
+// speech and stand clearly above the recording's own noise floor. A fan, hum or
+// open microphone never produces that, however Whisper labels its output.
+fn has_speech(bytes: &[u8]) -> bool {
+    let Ok(mut wav) = hound::WavReader::new(std::io::Cursor::new(bytes)) else { return true };
+    let spec = wav.spec();
+    if spec.channels != 1 || spec.bits_per_sample != 16 || spec.sample_format != hound::SampleFormat::Int { return true; }
+    let size = (spec.sample_rate as usize * 3 / 100).max(1);
+    let samples: Vec<f64> = wav.samples::<i16>().filter_map(Result::ok).map(|s| f64::from(s) / 32768.).collect();
+    let mut levels: Vec<f64> = samples.chunks(size).filter(|c| c.len() == size).map(|c| {
+        let mean = c.iter().sum::<f64>() / c.len() as f64;
+        (c.iter().map(|s| (s - mean).powi(2)).sum::<f64>() / c.len() as f64).sqrt()
+    }).collect();
+    if levels.is_empty() { return false; }
+    let loud = levels.clone();
+    levels.sort_by(f64::total_cmp);
+    let floor = levels[levels.len() / 5].max(0.002);
+    loud.iter().filter(|level| **level > 0.02 && **level > floor * 3.).count() >= 10
+}
+fn repeated_letters(normalized: &str) -> bool {
+    let mut chars = normalized.chars();
+    chars.next().is_some_and(|first| chars.all(|c| c == first))
+}
+// Whisper fills silence with subtitle credits, "Gracias" or strings like "ss.s".
+// Drop a whole result made only of such phrases when the audio has no voice.
+fn drop_phantom_text(json: &mut serde_json::Value, speech: bool) {
+    if speech { return; }
+    let text = letters(json["text"].as_str().unwrap_or(""));
+    if text.is_empty() { return; }
+    let phantom = known_hallucination(&text) || repeated_letters(&text) || text.chars().count() <= 3
+        || json["text"].as_str().unwrap_or("").split(|c: char| ".,;!?¡¿\n".contains(c)).map(letters).filter(|s| !s.is_empty()).all(|s| known_hallucination(&s) || repeated_letters(&s));
+    if phantom {
+        json["text"] = serde_json::json!("");
+        for key in ["segments", "words"] {
+            if json.get(key).is_some() { json[key] = serde_json::json!([]); }
+        }
+    }
 }
 fn drop_silent_segments(json: &mut serde_json::Value) {
     if let Some(segments) = json.get("segments").and_then(|s| s.as_array()).cloned() {
@@ -479,7 +522,7 @@ mod tests {
         let mut reads = 0;
         tauri::async_runtime::block_on(async {
             for attempt in 0..3 {
-                let prepared = PreparedUpload { bytes: payload.clone(), extension: "wav".into(), background: true, silent: false };
+                let prepared = PreparedUpload { bytes: payload.clone(), extension: "wav".into(), background: true, silent: false, speech: false };
                 let result = send_prepared(prepared, &settings, &rules, Some("word"), &url, || {
                     reads += 1;
                     Ok(format!("synthetic-key-{reads}"))
@@ -701,6 +744,46 @@ mod tests {
     fn stray_spaces_in_saved_rules_still_match_at_sentence_edges() {
         let rules = vec![rule("grok ", " Groq")];
         assert_eq!(corrections("Uso grok. Y grok, otra vez grok", &rules), "Uso Groq. Y Groq, otra vez Groq");
+    }
+    fn synthetic_wav(seconds: f64, sample: impl Fn(usize, u32) -> f64) -> Vec<u8> {
+        let rate = 16000;
+        let mut bytes = std::io::Cursor::new(Vec::new());
+        {
+            let mut w = hound::WavWriter::new(&mut bytes, hound::WavSpec { channels: 1, sample_rate: rate, bits_per_sample: 16, sample_format: hound::SampleFormat::Int }).unwrap();
+            for i in 0..(seconds * rate as f64) as usize { w.write_sample((sample(i, rate) * 32767.).clamp(-32768., 32767.) as i16).unwrap(); }
+            w.finalize().unwrap();
+        }
+        bytes.into_inner()
+    }
+    #[test]
+    fn open_microphone_noise_is_not_speech_but_voice_is() {
+        let mut seed = 9u32;
+        let mut noise = || { seed = seed.wrapping_mul(1664525).wrapping_add(1013904223); ((seed >> 16) as f64 / 65535. - 0.5) * 0.02 };
+        let fan: Vec<f64> = (0..48000).map(|_| noise()).collect();
+        assert!(!has_speech(&synthetic_wav(3., |i, _| fan[i])), "steady room noise");
+        assert!(!has_speech(&synthetic_wav(3., |_, _| 0.)), "digital silence");
+        let clicks = synthetic_wav(3., |i, rate| if i % (rate as usize / 2) < 80 { 0.4 } else { fan[i] });
+        assert!(!has_speech(&clicks), "a few keyboard clicks are not speech");
+        // Syllables: a 180 Hz voiced tone switched on and off four times a second.
+        let voice = synthetic_wav(3., |i, rate| { let t = i as f64 / rate as f64; let on = (t * 4.).fract() < 0.6; fan[i] + if on { 0.15 * (t * 180. * 6.283).sin() } else { 0. } });
+        assert!(has_speech(&voice), "voice-like syllables");
+        let quiet = synthetic_wav(3., |i, rate| { let t = i as f64 / rate as f64; fan[i] * 0.2 + if (t * 4.).fract() < 0.6 { 0.04 * (t * 180. * 6.283).sin() } else { 0. } });
+        assert!(has_speech(&quiet), "quiet but real speech");
+    }
+    #[test]
+    fn phantom_results_without_voice_are_removed_and_real_words_stay() {
+        for phantom in [" Gracias.", " ss.s", "¡Gracias por ver!", " Subtítulos realizados por la comunidad de Amara.org", " Mmm.", " Gracias. Gracias.", " S"] {
+            let mut json = serde_json::json!({"text": phantom, "segments": [{"text": phantom}]});
+            drop_phantom_text(&mut json, false);
+            assert_eq!(json["text"], "", "{phantom}");
+            assert_eq!(json["segments"], serde_json::json!([]));
+        }
+        let mut real = serde_json::json!({"text": " Gracias."});
+        drop_phantom_text(&mut real, true);
+        assert_eq!(real["text"], " Gracias.", "a spoken thanks stays when there is voice");
+        let mut sentence = serde_json::json!({"text": " Mandale el archivo a Juan."});
+        drop_phantom_text(&mut sentence, false);
+        assert_eq!(sentence["text"], " Mandale el archivo a Juan.", "ordinary words are never removed by this rule");
     }
     #[test]
     fn noise_segments_and_lone_letters_are_dropped_but_speech_stays() {

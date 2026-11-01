@@ -189,33 +189,11 @@ pub fn start(app:&tauri::AppHandle){
     let app=app.clone();
     tauri::async_runtime::spawn(async move{
         tokio::time::sleep(Duration::from_secs(8)).await;
-        let mut announced:Option<String>=None;
         let mut failures=0u32;
         loop {
-            if let Ok(status)=check(app.clone(),false).await {
-                failures=0;
-                if let Some(version)=status.version {
-                    if announced.as_deref()!=Some(version.as_str()) {
-                        // Wait only while an update notice is pending; never interrupt active work.
-                        loop {
-                            let current=snapshot(&app);
-                            if current.version.as_deref()!=Some(version.as_str())||current.phase!="available" {break;}
-                            if idle(&app).is_ok() {
-                                if let Some(window)=app.get_webview_window("main") {
-                                    if !window.is_visible().unwrap_or(true)||window.is_minimized().unwrap_or(false) {
-                                        if crate::open_settings(app.clone()).is_ok() {
-                                            let _=app.emit_to("main","updater-open",());
-                                        }
-                                    }
-                                }
-                                announced=Some(version);
-                                break;
-                            }
-                            tokio::time::sleep(Duration::from_secs(2)).await;
-                        }
-                    }
-                }
-            } else {failures=failures.saturating_add(1);}
+            // Whispera lives in the tray: a new version is announced by the
+            // sidebar badge and the tray menu, never by opening a window.
+            if check(app.clone(),false).await.is_ok() {failures=0;} else {failures=failures.saturating_add(1);}
             tokio::time::sleep(retry_delay(failures)).await;
         }
     });

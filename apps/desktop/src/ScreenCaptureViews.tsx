@@ -75,6 +75,7 @@ export function ScreenSelection({kind='video',frameColor='#ffffff',snapshot,onPr
   const pickMonitor=(index:number)=>{if(busy)return;setBusy(true);void invoke('screen_start_monitor',{index}).catch(e=>{setError(String(e));setBusy(false);});};
   useEffect(()=>{let alive=true;if(kind==='video')void invoke<typeof monitors>('screen_monitors').then(value=>{if(alive&&Array.isArray(value))setMonitors(value);}).catch(e=>{if(alive)setError(String(e));});return()=>{alive=false;};},[kind]);
   const anchor = useRef<Point | undefined>(undefined);
+  const tilePress = useRef<number | null>(null);
   const boundedPoint=(x:number,y:number):Point=>({x:Math.max(0,Math.min(innerWidth,x)),y:Math.max(0,Math.min(innerHeight,y))});
   const interruptSelection=()=>{
     if(!anchor.current)return;
@@ -99,19 +100,24 @@ export function ScreenSelection({kind='video',frameColor='#ffffff',snapshot,onPr
     try{await invoke('screen_start',{rect});}catch(e){setError(String(e));setBusy(false);}
   };
   return <div className="screen-selection" style={snapshot?{backgroundImage:`url("${snapshot}")`,backgroundSize:'100% 100%'}:undefined} data-frozen={!!snapshot} data-has-selection={!!rect} onPointerDown={e => {
-    if (busy || e.button !== 0 || (e.target as HTMLElement).closest('button')) return;
+    const target=e.target as HTMLElement,tile=target.closest<HTMLElement>('.monitor-tile');
+    if (busy || e.button !== 0 || (!tile && target.closest('button'))) return;
+    // A screen tile is clicked to record that screen, but dragging from it still selects an area.
+    tilePress.current=tile?Number(tile.dataset.index):null;
     e.currentTarget.setPointerCapture(e.pointerId);
     anchor.current = boundedPoint(e.clientX,e.clientY); setOrigin(anchor.current); setEnd(anchor.current); setError('');
   }} onPointerMove={e => { if (anchor.current && !busy) setEnd(boundedPoint(e.clientX,e.clientY)); }} onPointerUp={async e => {
     const start = anchor.current; anchor.current = undefined;
     if (!start || busy) return;
     const end=boundedPoint(e.clientX,e.clientY);
+    const pressed=tilePress.current;tilePress.current=null;
+    if(pressed!==null&&Math.max(Math.abs(end.x-start.x),Math.abs(end.y-start.y))<6){setOrigin(undefined);setEnd(undefined);pickMonitor(pressed);return;}
     const rect = { x: Math.min(start.x, end.x), y: Math.min(start.y, end.y), width: Math.abs(end.x - start.x), height: Math.abs(end.y - start.y) };
     if (rect.width < 16 || rect.height < 16) { setError('Seleccioná un área más grande.'); return; }
     await beginCapture(rect);
   }} onPointerCancel={interruptSelection} onLostPointerCapture={interruptSelection}>
     <div className="screen-selection-help" role="status">{busy ? 'Preparando…' : error || (kind==='image'?'Seleccioná el área para capturar.':'Seleccioná el área. Al soltar empieza a grabar.')} <kbd>{commandKey}+A: pantalla completa</kbd><kbd>Esc: salir</kbd></div>
-    {kind==='video'&&!origin&&<MonitorPicker monitors={monitors} current={current} busy={busy} onPick={pickMonitor}/>}
+    {kind==='video'&&!(rect&&(rect.width>5||rect.height>5))&&<MonitorPicker monitors={monitors} current={current} busy={busy} onPick={pickMonitor}/>}
     {rect && <CaptureFrame className="screen-selection-rect" width={rect.width} height={rect.height} color={frameColor} style={{left:rect.x,top:rect.y}}/>}
   </div>;
 }

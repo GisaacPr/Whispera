@@ -394,7 +394,9 @@ async fn open_import(app: tauri::AppHandle) -> Result<(), String> {
     .map_err(|e| e.to_string())?
 }
 
+static APP_STARTED: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
 fn main() {
+    let _ = APP_STARTED.set(std::time::Instant::now());
     // A drag helper never opens the profile, registers shortcuts, or starts audio.
     if let Some(code) = native_drag::helper_entry() { std::process::exit(code); }
     tauri::Builder::default()
@@ -402,7 +404,10 @@ fn main() {
         // A second autostart stays in the tray, but opening Whispera from Start or the
         // desktop while it already runs must show something instead of doing nothing.
         .plugin(tauri_plugin_single_instance::init(|app, args, _| {
-            if !args.iter().any(|arg| arg == "--autostart") {
+            // At sign-in Windows can start Whispera twice (autostart plus an old
+            // Startup shortcut); that duplicate must not open a window.
+            let early = APP_STARTED.get().is_none_or(|at| at.elapsed() < std::time::Duration::from_secs(30));
+            if !early && !args.iter().any(|arg| arg == "--autostart") {
                 if let Err(error) = open_settings(app.clone()) { let _ = app.state::<Store>().event(&error); }
             }
         }))
