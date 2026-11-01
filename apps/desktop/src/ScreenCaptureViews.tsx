@@ -99,7 +99,7 @@ export function ScreenSelection({kind='video',frameColor='#ffffff',snapshot,onPr
     try{await invoke('screen_start',{rect});}catch(e){setError(String(e));setBusy(false);}
   };
   return <div className="screen-selection" style={snapshot?{backgroundImage:`url("${snapshot}")`,backgroundSize:'100% 100%'}:undefined} data-frozen={!!snapshot} data-has-selection={!!rect} onPointerDown={e => {
-    if (busy || e.button !== 0 || (e.target as HTMLElement).closest('button,.monitor-picker')) return;
+    if (busy || e.button !== 0 || (e.target as HTMLElement).closest('button')) return;
     e.currentTarget.setPointerCapture(e.pointerId);
     anchor.current = boundedPoint(e.clientX,e.clientY); setOrigin(anchor.current); setEnd(anchor.current); setError('');
   }} onPointerMove={e => { if (anchor.current && !busy) setEnd(boundedPoint(e.clientX,e.clientY)); }} onPointerUp={async e => {
