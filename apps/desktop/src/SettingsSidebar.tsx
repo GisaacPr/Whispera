@@ -33,7 +33,7 @@ export default function SettingsSidebar({items,value,onChange,expanded,brand,upd
     if(keyboard||tip)setTip(next);else timer.current=setTimeout(()=>setTip(next),400);
   }
   return <LayoutGroup id={group}><div className="liquid-sidebar-host">
-    <LiquidPanel target={aside} expanded={expanded} onSettled={()=>setFilled(true)}/>
+    <LiquidPanel target={aside} expanded={expanded} onSettled={()=>setFilled(true)} onEmptied={()=>setFilled(false)}/>
     <motion.aside ref={aside} className="desktop-sidebar settings-sidebar liquid-sidebar" data-expanded={expanded} data-filled={filled} initial={false}
       animate={{width:expanded?224:64}} transition={reduce?{duration:0}:{type:'spring',visualDuration:.3,bounce:0}} onPointerLeave={hide}>
       {brand}{update}

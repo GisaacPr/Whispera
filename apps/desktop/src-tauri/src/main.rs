@@ -23,6 +23,7 @@ mod screen_capture;
 mod engine;
 mod floating_window;
 mod groq;
+mod local_asr;
 mod video_timing;
 mod lossless_upload;
 mod image_clipboard;
@@ -77,6 +78,22 @@ async fn audio_input_devices() -> Vec<String> {
     tauri::async_runtime::spawn_blocking(audio::input_devices).await.unwrap_or_default()
 }
 #[tauri::command]
+fn local_models() -> local_asr::Status {
+    local_asr::status()
+}
+#[tauri::command]
+async fn local_model_install(id: String) -> Result<(), String> {
+    local_asr::install(id).await
+}
+#[tauri::command]
+fn local_model_cancel() {
+    local_asr::cancel()
+}
+#[tauri::command]
+fn local_model_remove(id: String) -> Result<(), String> {
+    local_asr::remove(&id)
+}
+#[tauri::command]
 fn read_settings(store: State<Store>) -> Result<Settings, String> {
     store.get("settings")
 }
@@ -117,7 +134,9 @@ fn save_settings(
         return Err("El atajo de dictado debe ser distinto de los de video y captura".into());
     }
     shortcuts::update(&app, &old.hotkey, &settings.hotkey)?;
-    store.put("settings", &settings)
+    store.put("settings", &settings)?;
+    local_asr::preload(&settings);
+    Ok(())
 }
 #[tauri::command]
 fn read_rules(store: State<Store>) -> Result<Vec<Rule>, String> {
@@ -538,6 +557,8 @@ fn main() {
             store
                 .event("Whispera 2 iniciada")
                 .map_err(std::io::Error::other)?;
+            if let Ok(settings) = store.get::<Settings>("settings") { local_asr::preload(&settings); }
+            tauri::async_runtime::spawn(local_asr::prepare_speech_detector());
             app.manage(store);
             if let Ok(binary)=screen::ffmpeg(app.handle()) {screen::warm_encoder(&binary);lossless_upload::configure(binary);}
             let startup_app=app.handle().clone();
@@ -701,6 +722,10 @@ fn main() {
             windows_capture_keys::save_windows_capture_shortcuts,
             snapshot,
             audio_input_devices,
+            local_models,
+            local_model_install,
+            local_model_cancel,
+            local_model_remove,
             save_settings,
             read_settings,
             read_history,

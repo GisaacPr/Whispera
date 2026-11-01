@@ -33,6 +33,7 @@ import "./style.css";
 import "./desktop.css";
 import { SetupGate } from './Onboarding';
 import GroqKeyGuide from './GroqKeyGuide';
+import { LocalEngine } from "./LocalEngine";
 import { MicrophoneSelect } from './MicrophoneSelect';
 import { ShortcutSettings, CaptureHistory } from './CaptureSettings';
 import LibrarySettings from './LibrarySettings';
@@ -142,9 +143,10 @@ function SettingsApp({sidebarExpanded}:{sidebarExpanded:boolean}) {
         {route==='sounds'&&<SoundSettings settings={data.settings} patch={patch} onError={setMessage}/>}
         {route==='diagnostics'&&<><div className="form-row"><label htmlFor="watchdog">Recuperar interfaz sin respuesta</label><SettingsSwitch id="watchdog" label="Vigilancia de interfaz" checked={data.settings.watchdog} onChange={v=>patch({watchdog:v})}/></div><button disabled={!api.native||busy} onClick={()=>run(()=>invoke('restart_app'),'Reiniciando')}><RotateCcw size={16}/>Reiniciar Whispera</button></>}
         {route === "transcription" && <>
-          <div className="provider-line"><div className="provider-logo"><AudioLines size={22} /></div><div><h2>Groq</h2><p>Proveedor de transcripción</p></div><span className="state-tag"><i />{data.keyConfigured ? "Clave guardada" : "Sin conectar"}</span></div>
+          <LocalEngine settings={data.settings} patch={patch} onError={setMessage} />
+          {(data.settings.transcriptionEngine??"groq")==="groq"&&<div className="provider-line"><div className="provider-logo"><AudioLines size={22} /></div><div><h2>Groq</h2><p>Proveedor de transcripción</p></div><span className="state-tag"><i />{data.keyConfigured ? "Clave guardada" : "Sin conectar"}</span></div>}
           <h3>Voz e idioma</h3>
-          <div className="form-row"><label htmlFor="model">Modelo</label><select id="model" value={data.settings.model} onChange={e => patch({ model: e.target.value })}><option value="whisper-large-v3-turbo">Whisper Large v3 Turbo</option><option value="whisper-large-v3">Whisper Large v3</option></select></div>
+          {(data.settings.transcriptionEngine??"groq")==="groq"&&<div className="form-row"><label htmlFor="model">Modelo</label><select id="model" value={data.settings.model} onChange={e => patch({ model: e.target.value })}><option value="whisper-large-v3-turbo">Whisper Large v3 Turbo</option><option value="whisper-large-v3">Whisper Large v3</option></select></div>}
           <div className="form-row"><label htmlFor="language">Idioma del audio</label><select id="language" value={data.settings.language} onChange={e => patch({ language: e.target.value })}><option value="es">Español</option><option value="en">English</option><option value="pt">Português</option><option value="auto">Detectar automáticamente</option></select></div>
           <MicrophoneSelect value={data.settings.microphone ?? ""} onChange={microphone => patch({ microphone })} />
           <h3>Conexión</h3><div className="key-line"><label htmlFor="key">Clave API de Groq <span>Almacenada en {credentialStore}</span></label><div><input id="key" type="password" autoComplete="off" value={key} placeholder={data.keyConfigured ? "••••••••••••••••" : "gsk_…"} onChange={e => setKey(e.target.value)} onBlur={()=>{if(key.trim()&&api.native)void run(async()=>{await api.saveKey(key);setKey("");},`Clave guardada automáticamente en ${credentialStore}`);}} /></div></div>

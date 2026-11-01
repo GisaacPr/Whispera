@@ -89,22 +89,22 @@ function TrayMenu() {
         <span className="tm-status" data-tone={now.tone}><i />{now.text}</span>
       </header>
       <div className="tm-tiles">
-        <button className="tm-tile" data-item onClick={() => run("recorder")}><span className="tm-tile-icon"><Mic size={20} /></span><span className="tm-tile-label">Dictado</span><Keycaps compact keys={state.shortcuts.recorder} /></button>
-        <button className="tm-tile" data-item onClick={() => run("screen")}><span className="tm-tile-icon"><Video size={20} /></span><span className="tm-tile-label">Video</span><Keycaps compact keys={state.shortcuts.video} /></button>
-        <button className="tm-tile" data-item onClick={() => run("screenshot")}><span className="tm-tile-icon"><ScanLine size={20} /></span><span className="tm-tile-label">Captura</span><Keycaps compact keys={state.shortcuts.capture} /></button>
+        <button className="tm-tile" data-item data-live={state.phase === "recording"} onClick={() => run("recorder")}><span className="tm-tile-icon"><Mic size={20} strokeWidth={1.5} /></span><span className="tm-tile-label">Dictado</span><Keycaps compact keys={state.shortcuts.recorder} /></button>
+        <button className="tm-tile" data-item data-live={state.videoBusy} onClick={() => run("screen")}><span className="tm-tile-icon"><Video size={20} strokeWidth={1.5} /></span><span className="tm-tile-label">Video</span><Keycaps compact keys={state.shortcuts.video} /></button>
+        <button className="tm-tile" data-item onClick={() => run("screenshot")}><span className="tm-tile-icon"><ScanLine size={20} strokeWidth={1.5} /></span><span className="tm-tile-label">Captura</span><Keycaps compact keys={state.shortcuts.capture} /></button>
       </div>
       <div className="tm-group">
-        <Row icon={<ClipboardList size={17} />} label="Portapapeles" keys={state.shortcuts.library} action="library" run={run} />
-        <Row icon={<FileAudio size={17} />} label="Transcribir archivo…" action="import" run={run} />
+        <Row icon={<ClipboardList size={16} strokeWidth={1.5} />} label="Portapapeles" keys={state.shortcuts.library} action="library" run={run} />
+        <Row icon={<FileAudio size={16} strokeWidth={1.5} />} label="Transcribir archivo…" action="import" run={run} />
       </div>
       <div className="tm-group">
-        <Row icon={<Settings size={17} />} label="Configuración" action="settings" run={run} />
+        <Row icon={<Settings size={16} strokeWidth={1.5} />} label="Configuración" action="settings" run={run} />
         {state.update
-          ? <Row icon={<ArrowUpCircle size={17} />} label="Actualizar Whispera" hint={<span className="tm-badge">{state.update}</span>} action="updates" run={run} tone="accent" />
-          : <Row icon={<RefreshCw size={17} />} label="Buscar actualizaciones" action="updates" run={run} />}
+          ? <Row icon={<ArrowUpCircle size={16} strokeWidth={1.5} />} label="Actualizar Whispera" hint={<span className="tm-update">{state.update}</span>} action="updates" run={run} tone="accent" />
+          : <Row icon={<RefreshCw size={16} strokeWidth={1.5} />} label="Buscar actualizaciones" action="updates" run={run} />}
       </div>
       <div className="tm-group tm-foot">
-        <Row icon={<Power size={17} />} label="Salir de Whispera" action="quit" run={run} tone="danger" />
+        <Row icon={<Power size={16} strokeWidth={1.5} />} label="Salir de Whispera" action="quit" run={run} tone="danger" />
       </div>
     </div>
   </div>;

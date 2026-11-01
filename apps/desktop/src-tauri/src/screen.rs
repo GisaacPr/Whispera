@@ -255,6 +255,50 @@ fn release_escape(app: &tauri::AppHandle, secondary: bool) {
         let _ = app.global_shortcut().unregister(key);
     }
 }
+/// The "press Esc again" notice, centered on the screen under the pointer. It
+/// never takes focus or clicks, and is excluded from the recording itself.
+fn esc_notice(app: &tauri::AppHandle, show: bool) {
+    const LABEL: &str = "screen-esc-notice";
+    let window = match app.get_webview_window(LABEL) {
+        Some(window) => window,
+        None if !show => return,
+        None => match tauri::WebviewWindowBuilder::new(app, LABEL, tauri::WebviewUrl::App("esc-notice.html".into()))
+            .title("Whispera")
+            .inner_size(560., 120.)
+            .transparent(true)
+            .decorations(false)
+            .shadow(false)
+            .always_on_top(true)
+            .skip_taskbar(true)
+            .resizable(false)
+            .focused(false)
+            .focusable(false)
+            .visible(false)
+            .build()
+        {
+            Ok(window) => window,
+            Err(_) => return,
+        },
+    };
+    if !show {
+        let _ = window.hide();
+        return;
+    }
+    let _ = window.set_ignore_cursor_events(true);
+    let _ = protect(&window);
+    let monitor = app.cursor_position().ok()
+        .and_then(|point| app.monitor_from_point(point.x, point.y).ok().flatten())
+        .or_else(|| app.primary_monitor().ok().flatten());
+    if let (Some(monitor), Ok(size)) = (monitor, window.outer_size()) {
+        let (origin, area) = (monitor.position(), monitor.size());
+        let x = origin.x + (area.width as i32 - size.width as i32) / 2;
+        let y = origin.y + (area.height as i32 - size.height as i32) / 2;
+        let _ = window.set_position(tauri::PhysicalPosition::new(x, y));
+    }
+    // Reload so the entrance plays on every first press.
+    let _ = window.eval("location.reload()");
+    let _ = window.show();
+}
 pub fn escape(app: &tauri::AppHandle) -> Result<(), String> {
     if app.state::<session::ImageCapture>().screen.busy(){return cancel_selection_for(app.clone(), "image-session");}
     let screen = app.state::<Screen>();
@@ -270,15 +314,18 @@ pub fn escape(app: &tauri::AppHandle) -> Result<(), String> {
             if !armed.is_some_and(|at| at.elapsed() < Duration::from_secs(2)) {
                 *armed = Some(Instant::now());
                 state.notice = NOTICE.into();
+                esc_notice(app, true);
                 let status = screen.state.clone();
+                let handle = app.clone();
                 std::thread::spawn(move || {
                     std::thread::sleep(Duration::from_secs(2));
-                    if let Ok(mut state) = status.lock() { if state.notice == NOTICE { state.notice.clear(); } }
+                    if let Ok(mut state) = status.lock() { if state.notice == NOTICE { state.notice.clear(); esc_notice(&handle, false); } }
                 });
                 return Ok(());
             }
             *armed = None;
             state.notice.clear();
+            esc_notice(app, false);
         }
     }
     stop_locked(app, &screen)?;

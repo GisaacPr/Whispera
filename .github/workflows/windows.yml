@@ -18,6 +18,7 @@ jobs:
           cache: npm
           cache-dependency-path: apps/desktop/package-lock.json
       - uses: dtolnay/rust-toolchain@stable
+      - uses: ./.github/actions/vulkan-sdk
       - name: Check source
         run: node scripts/check-source.mjs
       - name: Install frontend dependencies

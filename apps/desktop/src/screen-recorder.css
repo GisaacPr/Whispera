@@ -117,7 +117,10 @@ html[data-screen-select="true"], html[data-screen-select="true"] body, html[data
 .capture-frame-handle-s {left:50%;top:100%;cursor:ns-resize;}.capture-frame-handle-sw {left:0;top:100%;cursor:nesw-resize;}
 .capture-frame-handle-w {left:0;top:50%;cursor:ew-resize;}.capture-frame-handle-nw {left:0;top:0;cursor:nwse-resize;}
 .capture-frame-error { position:absolute; padding:5px 9px; border-radius:6px; background:#18181b; color:#fff; font-size:12px; }
-.capture-hud-notice { background:#26222e; border-color:#7d6aa6; color:#e9e1ff; }
+.capture-hud-esc { display:inline-flex; align-items:center; gap:6px; padding:0 10px; height:28px; border-radius:8px; background:#ff5f6226; color:#ffd9d9; font-size:12px; font-weight:600; white-space:nowrap; animation:capture-hud-esc-in .18s ease-out; }
+.capture-hud-esc kbd { padding:1px 6px; border-radius:5px; background:#ffffff1f; font:inherit; font-size:11px; }
+@keyframes capture-hud-esc-in { from { opacity:0; transform:translateX(-4px); } }
+@media(prefers-reduced-motion:reduce){ .capture-hud-esc { animation:none; } }
 /* Monitor picker: the screens drawn in their real arrangement. */
 .monitor-picker {pointer-events:none;position:absolute;top:84px;left:50%;transform:translateX(-50%);z-index:2;display:flex;flex-direction:column;align-items:center;gap:16px;padding:20px 22px 16px;max-width:calc(100% - 32px);color:#eeede9;border:1px solid #ffffff26;border-radius:22px;background:linear-gradient(160deg,#26242af7,#131215f7);box-shadow:inset 0 1px #ffffff1a,0 24px 60px #0009;font-family:"Instrument Sans Variable","Segoe UI",sans-serif;animation:monitor-in .26s cubic-bezier(.22,1,.36,1);}
 @keyframes monitor-in {from{opacity:0;transform:translate(-50%,-8px) scale(.98);}}

@@ -133,6 +133,13 @@ async fn transcribe_inner(
     rules: &[Rule],
     apply: bool,
 ) -> Result<String, String> {
+    if settings.transcription_engine == "local" && path.extension().is_some_and(|e| e.eq_ignore_ascii_case("wav")) {
+        let (path, local) = (path.to_owned(), settings.clone());
+        let text = tauri::async_runtime::spawn_blocking(move || crate::local_asr::transcribe(&path, &local))
+            .await
+            .map_err(|e| e.to_string())??;
+        return Ok(if apply { corrections(&text, rules) } else { text });
+    }
     let json = request(path, settings, rules, false).await?;
     let text = json
         .get("text")
@@ -222,6 +229,15 @@ async fn prepare_upload(path: &Path) -> Result<PreparedUpload, String> {
         .map_err(|_| "No se pudo leer el audio")?;
     if ext == "wav" && digital_silence(&bytes) {
         return Ok(PreparedUpload { bytes: Vec::new(), extension: ext, background: false, silent: true, speech: false });
+    }
+    // Silero hears no voice (a bump, a click, room noise): send nothing, so Whisper
+    // has no chance to invent "Gracias". Without the detector the checks below apply.
+    if ext == "wav" {
+        let probe = bytes.clone();
+        let verdict = tauri::async_runtime::spawn_blocking(move || crate::local_asr::contains_speech(&probe)).await.ok().flatten();
+        if verdict == Some(false) {
+            return Ok(PreparedUpload { bytes: Vec::new(), extension: ext, background: false, silent: true, speech: false });
+        }
     }
     // Keep every nonzero sample and its original time coordinate. Long digital
     // silence at the end can make Whisper invent a closing phrase. This only
@@ -364,6 +380,12 @@ fn drop_phantom_text(json: &mut serde_json::Value, speech: bool) {
             if json.get(key).is_some() { json[key] = serde_json::json!([]); }
         }
     }
+}
+/// The same phantom rule for a plain transcript, given the WAV it came from.
+pub(crate) fn drop_phantom(text: &str, wav: &[u8]) -> String {
+    let mut json = serde_json::json!({ "text": text });
+    drop_phantom_text(&mut json, has_speech(wav));
+    json["text"].as_str().unwrap_or("").to_owned()
 }
 fn drop_silent_segments(json: &mut serde_json::Value) {
     if let Some(segments) = json.get("segments").and_then(|s| s.as_array()).cloned() {

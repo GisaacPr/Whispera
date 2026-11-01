@@ -12,7 +12,7 @@ jobs:
   release:
     if: ${{ !contains(github.event.head_commit.message, '[publish macos]') }}
     runs-on: windows-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
         with:
@@ -23,6 +23,7 @@ jobs:
           cache: npm
           cache-dependency-path: apps/desktop/package-lock.json
       - uses: dtolnay/rust-toolchain@stable
+      - uses: ./.github/actions/vulkan-sdk
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: apps/desktop/src-tauri

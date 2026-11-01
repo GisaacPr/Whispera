@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>Whispera · Aviso</title>
+<style>
+  html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; user-select: none; }
+  body { display: grid; place-items: center; font-family: "Instrument Sans Variable", "Segoe UI", system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  .notice {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 20px 12px 16px; border-radius: 14px;
+    color: #f2f2f4; font-size: 16px; font-weight: 500; line-height: 24px; white-space: nowrap;
+    background: #1b1b1df2; border: 1px solid #ffffff14;
+    box-shadow: inset 0 1px 0 #ffffff0f, 0 16px 40px -12px #000c;
+    animation: rise 180ms cubic-bezier(.22, 1, .36, 1);
+  }
+  .notice i { width: 10px; height: 10px; border-radius: 50%; background: #e5484d; flex-shrink: 0; }
+  kbd {
+    font: 500 13px/20px inherit; min-width: 32px; height: 26px; padding: 3px 8px; text-align: center;
+    border-radius: 6px; color: #f2f2f4; background: #ffffff14; box-shadow: inset 0 -2px 0 #0006, 0 0 0 1px #ffffff14;
+  }
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); } }
+  @media (prefers-reduced-motion: reduce) { .notice { animation: none; } }
+</style>
+</head>
+<body>
+  <div class="notice" role="status"><i></i>Apretá <kbd>Esc</kbd> otra vez para terminar la grabación</div>
+</body>
+</html>

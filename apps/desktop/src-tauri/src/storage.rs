@@ -28,6 +28,9 @@ pub struct Settings {
     pub incremental_transcription: bool,
     /// Input device name; empty uses the system default microphone.
     pub microphone: String,
+    /// "groq" (cloud) or "local" (on-device model).
+    pub transcription_engine: String,
+    pub local_model: String,
 }
 impl Default for Settings {
     fn default() -> Self {
@@ -52,6 +55,8 @@ impl Default for Settings {
             watchdog: true,
             incremental_transcription: true,
             microphone: String::new(),
+            transcription_engine: "groq".into(),
+            local_model: "parakeet-v3".into(),
         }
     }
 }
@@ -79,6 +84,9 @@ impl Settings {
         }
         if !["whisper-large-v3-turbo", "whisper-large-v3"].contains(&self.model.as_str()) {
             return Err("Modelo no admitido".into());
+        }
+        if !["groq", "local"].contains(&self.transcription_engine.as_str()) || crate::local_asr::spec(&self.local_model).is_none() {
+            return Err("Motor de transcripción no admitido".into());
         }
         if !["es", "en", "pt", "auto"].contains(&self.language.as_str()) {
             return Err("Idioma no admitido".into());

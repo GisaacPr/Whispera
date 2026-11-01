@@ -32,7 +32,7 @@ function edge(points: [number, number][]) {
   return d;
 }
 
-export default function LiquidPanel({ target, expanded, onSettled }: { target: RefObject<HTMLElement | null>; expanded: boolean; onSettled: () => void }) {
+export default function LiquidPanel({ target, expanded, onSettled, onEmptied }: { target: RefObject<HTMLElement | null>; expanded: boolean; onSettled: () => void; onEmptied?: () => void }) {
   const svg = useRef<SVGSVGElement>(null);
   const body = useRef<SVGPathElement>(null);
   const gloss = useRef<SVGPathElement>(null);
@@ -42,6 +42,7 @@ export default function LiquidPanel({ target, expanded, onSettled }: { target: R
   const filter = useId().replace(/:/g, "");
   const wake = useRef<() => void>(() => {});
   const settled = useRef(onSettled); settled.current = onSettled;
+  const emptied = useRef(onEmptied); emptied.current = onEmptied;
 
   useEffect(() => {
     const host = svg.current, aside = target.current;
@@ -167,13 +168,22 @@ export default function LiquidPanel({ target, expanded, onSettled }: { target: R
       if (near) start();
     };
     const leave = () => { pointer = null; };
+    // Settings windows are hidden, not closed: pour again every time one is shown.
+    const replay = () => {
+      if (document.hidden || reduce) return;
+      level = 1; intro = true; introTime = 0; slosh = 0;
+      floaters.length = 0; flying.length = 0;
+      emptied.current?.(); start();
+    };
     window.addEventListener("pointermove", move);
     document.addEventListener("pointerleave", leave);
+    document.addEventListener("visibilitychange", replay);
     if (reduce) settled.current();
     draw(); start();
     return () => {
       cancelAnimationFrame(frame); resize.disconnect();
       window.removeEventListener("pointermove", move); document.removeEventListener("pointerleave", leave);
+      document.removeEventListener("visibilitychange", replay);
     };
   }, [target]);
 

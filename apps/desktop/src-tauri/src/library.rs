@@ -1038,7 +1038,15 @@ pub fn library_cursor(
     };
     #[cfg(target_os = "macos")]
     let cursor = window.cursor_position().map_err(|e| e.to_string())?;
-    Ok(
-        json!({"x":(cursor.x-origin.x as f64)/scale,"y":(cursor.y-origin.y as f64)/scale,"displayWidth":size.width as f64/scale,"displayHeight":size.height as f64/scale,"stickPosition":settings(&app.state::<Store>())?["stickPosition"]}),
-    )
+    let mut value = json!({"x":(cursor.x-origin.x as f64)/scale,"y":(cursor.y-origin.y as f64)/scale,"displayWidth":size.width as f64/scale,"displayHeight":size.height as f64/scale,"stickPosition":settings(&app.state::<Store>())?["stickPosition"]});
+    // The open panel stays until a click outside it. "clicked" (the low bit) also
+    // reports a click that started and ended between two polls.
+    #[cfg(windows)]
+    {
+        use windows::Win32::UI::Input::KeyboardAndMouse::{GetAsyncKeyState, VK_LBUTTON, VK_RBUTTON};
+        let states = [VK_LBUTTON, VK_RBUTTON].map(|key| unsafe { GetAsyncKeyState(i32::from(key.0)) } as u16);
+        value["down"] = json!(states.iter().any(|state| state & 0x8000 != 0));
+        value["clicked"] = json!(states.iter().any(|state| state & 0x0001 != 0));
+    }
+    Ok(value)
 }
