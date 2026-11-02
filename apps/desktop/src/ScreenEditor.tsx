@@ -226,6 +226,7 @@ function Ink({ context }: { context: Context }) {
   }, [version,tool,options,busy,error,context.id]);
   const point = (e: React.PointerEvent) => ({ x:Math.max(0,Math.min(context.width,e.clientX)),y:Math.max(0,Math.min(context.height,e.clientY)) });
   return <div className="screen-ink" data-tool={tool} data-session={context.id} data-kind={context.kind}>
+    {context.kind==='video'&&<EscNotice/>}
     {context.kind==='image'&&!context.rect&&<CaptureFrame className="screen-image-frame" width={context.width} height={context.height} color={context.frame_color}/>}
     <canvas ref={canvas} style={context.kind === 'image' ? {borderRadius:Math.min(14,context.width/2,context.height/2)} : undefined} aria-label={context.kind === 'image' ? 'Editar captura' : 'Dibujar sobre video'} width={Math.round(context.width*context.scale)} height={Math.round(context.height*context.scale)}
       onPointerDown={e => {
@@ -254,6 +255,17 @@ function Ink({ context }: { context: Context }) {
       }} onPointerCancel={() => { draft.current = null; moving.current = null; schedule(); }} />
     {text && <input autoFocus className="screen-text-entry" aria-label="Texto de la marca" maxLength={300} style={{left:Math.min(text.point.x,Math.max(0,context.width-180)),top:Math.min(text.point.y,Math.max(0,context.height-40)),color:options.color,fontSize:14+options.width*3}} value={text.value} onChange={e => setText({...text,value:e.target.value})} onBlur={commitText} onKeyDown={e => { if(e.key==='Enter'){e.preventDefault();commitText();} if(e.key==='Escape'){e.stopPropagation();setText(undefined);} }} />}
   </div>;
+}
+// "Press Esc again" in the middle of the recorded area. It lives in the existing
+// ink layer (excluded from the recording); a separate window could deadlock.
+function EscNotice() {
+  const [notice,setNotice]=useState('');
+  useEffect(()=>{
+    let alive=true;let timer:ReturnType<typeof setTimeout>|undefined;
+    const poll=async()=>{try{const value=await invoke<VideoStatus>('screen_status');if(alive)setNotice(value.notice??'');}catch{/* the HUD reports errors */}finally{if(alive)timer=setTimeout(poll,250);}};
+    void poll();return()=>{alive=false;clearTimeout(timer);};
+  },[]);
+  return notice?<div className="screen-esc-notice" role="status"><i/>Apretá <kbd>Esc</kbd> otra vez para terminar la grabación</div>:null;
 }
 export function ScreenTools() { const context = useContext(); return context ? <Toolbar key={context.id} context={context}/> : null; }
 export function ScreenHud() { const context = useContext(); return context ? context.kind==='video' ? <VideoHud key={context.id} context={context}/> : <ImageActions key={context.id} context={context}/> : null; }
