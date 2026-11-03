@@ -14,7 +14,10 @@ html[data-screen-select="true"], html[data-screen-select="true"] body, html[data
 /* Only three short strokes animate; no canvas loop or React frame updates. */
 .capture-frame { position:absolute; border:2px solid #fff; box-sizing:border-box; pointer-events:none; background:transparent; outline:1px solid #0006; }
 .capture-border-beam { position:absolute; left:-2px; top:-2px; width:calc(100% + 4px); height:calc(100% + 4px); overflow:visible; color:var(--capture-frame-color,#fff); }
-.capture-border-beam rect { animation:capture-border-travel 6s linear infinite; }
+/* One lap when the area is chosen, then a still border: an endless beam repainted the whole
+   transparent monitor-sized selector window every frame, which lagged large displays. */
+.capture-border-beam rect { animation:capture-border-travel 1.6s cubic-bezier(.4,0,.2,1) 1 both, capture-border-fade 1.6s ease-out 1 both; }
+@keyframes capture-border-fade { 0%,70% { opacity:1; } 100% { opacity:0; } }
 @keyframes capture-border-travel { from { stroke-dashoffset:0; } to { stroke-dashoffset:100; } }
 .screen-image-frame { inset:0; z-index:3; }
 @media(prefers-reduced-motion:reduce) { .capture-border-beam { display:none; } }

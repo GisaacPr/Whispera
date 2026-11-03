@@ -797,6 +797,9 @@ pub async fn screen_overlay_customize(app:tauri::AppHandle,window:tauri::Webview
         if let Some(bounds)=hud_update {
             if let Some(hud)=app.get_webview_window(&session::label(&id,"screen-hud")) {screen::place_window(&hud,bounds)?;}
         }
+        // Moving or resizing a dock (collapse, rotate, drag) can reorder topmost windows and put
+        // the capture border under the frozen image; restore the order like every other control path.
+        if action!="get" && action!="begin" {raise_controls(&app);}
         if ["configure","end","cancel","reset","nudge"].contains(&action.as_str()) {
             let store=app.state::<crate::storage::Store>();
             // Update this dock only: an image editor can coexist with a video.
