@@ -26,9 +26,24 @@ export default function EditableCaptureFrame({context}:{context:CaptureContext})
   const queuePreview=(next:SelectionRect)=>{
     const state=preview.current;state.pending=next;
     if(state.frame)return;
-    state.frame=requestAnimationFrame(()=>{state.frame=0;void flushPreview().catch(e=>{if(alive.current)setError(String(e));});});
+    // One render and one native update per display frame, however fast the pointer reports.
+    state.frame=requestAnimationFrame(()=>{state.frame=0;if(alive.current&&drag.current)setRect(current.current);void flushPreview().catch(e=>{if(alive.current)setError(String(e));});});
   };
   useEffect(()=>{current.current=context.rect!;setRect(context.rect!);},[context.rect?.x,context.rect?.y,context.width,context.height]);
+  // The frame keeps focus after a drag, so it forwards the editor's copy/save/undo
+  // shortcuts; otherwise Ctrl+C would do nothing until the ink layer is clicked.
+  useEffect(()=>{
+    const key=(e:KeyboardEvent)=>{
+      if(!(e.ctrlKey||e.metaKey))return;
+      const k=e.key.toLowerCase();
+      const action=k==='c'||k==='s'?(context.kind==='image'?(k==='c'?'copy':'save'):undefined):k==='z'?(e.shiftKey?'redo':'undo'):k==='y'?'redo':undefined;
+      if(!action)return;
+      e.preventDefault();
+      void invoke('screen_editor_action',{id:context.id,action:{action}}).catch(e=>{if(alive.current)setError(String(e));});
+    };
+    window.addEventListener('keydown',key);
+    return()=>window.removeEventListener('keydown',key);
+  },[context.id,context.kind]);
   useEffect(()=>{alive.current=true;return()=>{alive.current=false;cancelAnimationFrame(preview.current.frame);preview.current.pending=undefined;};},[]);
   const start=(e:PointerEvent<HTMLButtonElement>,handle:SelectionHandle)=>{
     if(busy||e.button!==0)return;e.preventDefault();e.stopPropagation();e.currentTarget.setPointerCapture(e.pointerId);
@@ -39,14 +54,14 @@ export default function EditableCaptureFrame({context}:{context:CaptureContext})
   const move=(e:PointerEvent<HTMLButtonElement>)=>{
     const d=drag.current;if(!d)return;
     current.current=adjustSelection(d.rect,d.handle,e.clientX-d.x,e.clientY-d.y,{width:context.monitor_width!,height:context.monitor_height!});
-    setRect(current.current);
     queuePreview(current.current);
   };
   const finish=async(cancel=false)=>{
     const d=drag.current;if(!d)return;drag.current=undefined;
     setBusy(true);
     try {
-      if(cancel){current.current=d.rect;setRect(d.rect);}
+      if(cancel)current.current=d.rect;
+      setRect(current.current);
       cancelAnimationFrame(preview.current.frame);preview.current.frame=0;
       preview.current.pending=current.current;
       await flushPreview();

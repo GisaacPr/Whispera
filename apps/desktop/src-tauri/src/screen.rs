@@ -796,16 +796,31 @@ pub fn screen_frame_drag(app: tauri::AppHandle, window: tauri::WebviewWindow, ac
     // exposes the unpainted monitor-sized surface for a frame (a white flash at the
     // screen edges). Pointer capture still delivers moves outside the ring, and
     // screen_frame_preview moves the ring with the frame.
+    if let Ok(mut last)=DRAG_RING.lock() {*last=None;}
     if !active {set_frame_region(&window,Some(ctx.rect))?;frozen_dim(&window,Some(ctx.rect),false);ink_crop(&app,&window,&ctx,None);}
     crate::screen_editor::raise_controls(&app);
     Ok(())
+}
+/// The ring last applied during a drag. Rebuilding the window region forces DWM to
+/// recompose the monitor-sized window, so it is only rebuilt once an edge nears the
+/// rim of the wide drag ring.
+static DRAG_RING: Mutex<Option<(String,Rect)>> = Mutex::new(None);
+fn ring_still_covers(window:&str,rect:Rect)->bool {
+    if !cfg!(windows) {return false;} // other platforms keep the thin ring
+    let Ok(mut last)=DRAG_RING.lock() else {return false};
+    let near=|a:f64,b:f64|(a-b).abs()<48.;
+    if let Some((label,r))=last.as_ref() {
+        if label==window&&near(r.x,rect.x)&&near(r.y,rect.y)&&near(r.x+r.width,rect.x+rect.width)&&near(r.y+r.height,rect.y+rect.height) {return true;}
+    }
+    *last=Some((window.to_string(),rect));
+    false
 }
 #[tauri::command]
 pub fn screen_frame_preview(app:tauri::AppHandle,window:tauri::WebviewWindow,id:String,rect:Rect)->Result<(),String> {
     let ctx=crate::screen_editor::context_for(&app,window.label()).ok_or("Captura no disponible")?;
     if ctx.id!=id||ctx.source_label!=window.label(){return Err("La captura ya termino".into());}
     region(rect,ctx.scale,window.inner_position().map_err(|e|e.to_string())?,window.inner_size().map_err(|e|e.to_string())?)?;
-    drag_frame_region(&window,Some(rect))?;
+    if !ring_still_covers(window.label(),rect) {drag_frame_region(&window,Some(rect))?;}
     frozen_dim(&window,Some(rect),true);
     ink_crop(&app,&window,&ctx,Some(rect));
     // The docks stay put while dragging and move on release (drag_controls):
