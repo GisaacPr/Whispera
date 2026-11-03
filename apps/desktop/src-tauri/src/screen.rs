@@ -68,7 +68,8 @@ pub struct Screen {
     selection_started: Mutex<Option<Instant>>,
     /// Milestones of the current image selection, logged with "Selector de captura listo".
     selection_stages: Mutex<Vec<String>>,
-    snapshots: Mutex<std::collections::HashMap<String, crate::screen_capture::FrozenFrame>>,
+    /// Shared so a preview is encoded after the lock is released: both monitors encode at once.
+    snapshots: Mutex<std::collections::HashMap<String, std::sync::Arc<crate::screen_capture::FrozenFrame>>>,
 }
 struct Active {
     directory: PathBuf,
@@ -501,7 +502,7 @@ fn select_locked(app: &tauri::AppHandle, screen: &Screen, kind: &str) -> Result<
             let region = Region { x: monitor.position().x, y: monitor.position().y, width: monitor.size().width, height: monitor.size().height, ..Default::default() };
             #[cfg(target_os = "macos")]
             let region = crate::screen_capture::macos::monitor_region(monitor)?;
-            snapshots.insert(format!("{}select-{index}",if screen.secondary {"image-"}else{"screen-"}), crate::screen_capture::freeze(region)?);
+            snapshots.insert(format!("{}select-{index}",if screen.secondary {"image-"}else{"screen-"}), std::sync::Arc::new(crate::screen_capture::freeze(region)?));
         }
     }
     hide_selectors(app, screen);
@@ -783,10 +784,10 @@ pub fn screen_selection_kind(app:tauri::AppHandle,window:tauri::WebviewWindow) -
 #[tauri::command]
 pub fn screen_selection_image(app:tauri::AppHandle, window: tauri::WebviewWindow) -> Result<tauri::ipc::Response, String> {
     let screen=session::screen(&app,window.label());
-    let snapshots = screen.snapshots.lock().map_err(|_| "Captura ocupada")?;
     let source=session::frozen_source(window.label()).unwrap_or_else(||window.label().into());
+    let frame = screen.snapshots.lock().map_err(|_| "Captura ocupada")?.get(&source).cloned();
     selection_stage(&screen, "imagen pedida");
-    let bytes = snapshots.get(&source).map(|frame| frame.preview()).unwrap_or_default();
+    let bytes = frame.map(|frame| frame.preview()).unwrap_or_default();
     selection_stage(&screen, "imagen enviada");
     Ok(tauri::ipc::Response::new(bytes))
 }
@@ -800,8 +801,7 @@ pub fn screen_selection_frames(app: tauri::AppHandle, frames: u32, p95: f64, max
 pub fn screen_editor_background(app:tauri::AppHandle,id:String)->Result<tauri::ipc::Response,String> {
     let ctx=crate::screen_editor::context_for(&app,&id).filter(|c|c.id==id&&c.kind=="image").ok_or("Captura no disponible")?;
     let screen=session::screen(&app,&id);
-    let snapshots=screen.snapshots.lock().map_err(|_|"Captura ocupada")?;
-    let frame=snapshots.get(&ctx.source_label).ok_or("Pantalla congelada no disponible")?;
+    let frame=screen.snapshots.lock().map_err(|_|"Captura ocupada")?.get(&ctx.source_label).cloned().ok_or("Pantalla congelada no disponible")?;
     Ok(tauri::ipc::Response::new(frame.preview()))
 }
 fn frozen_generation(screen:&Screen)->Option<u64> {
