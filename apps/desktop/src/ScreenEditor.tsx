@@ -63,7 +63,18 @@ function useContext() {
   }, []);
   return context;
 }
-export function ScreenInk() { const context = useContext(); return context ? <Ink key={context.id} context={context} /> : null; }
+/** While the frame is shrunk, this window still shows the previous area until release:
+ * dim what now falls outside the frame, like the frozen desktop around it. */
+function InkCropDim({id}:{id:string}) {
+  const [crop,setCrop]=useState<{x:number;y:number;width:number;height:number}|null>(null);
+  useEffect(()=>{
+    let alive=true;let remove:UnlistenFn|undefined;
+    void listen<typeof crop>('screen-ink-crop',e=>{if(alive)setCrop(e.payload);}).then(off=>{if(alive)remove=off;else off();});
+    return()=>{alive=false;remove?.();};
+  },[id]);
+  return crop?<div className="screen-ink-dim" style={{left:crop.x,top:crop.y,width:crop.width,height:crop.height,borderRadius:Math.min(14,crop.width/2,crop.height/2)}}/>:null;
+}
+export function ScreenInk() { const context = useContext(); return context ? <><Ink key={context.id} context={context} />{context.kind==='image'&&<InkCropDim key={context.id+'-crop'} id={context.id}/>}</> : null; }
 function Ink({ context }: { context: Context }) {
   const canvas = useRef<HTMLCanvasElement>(null), background = useRef<HTMLImageElement | null>(null);
   const fullBackground=useRef(false);

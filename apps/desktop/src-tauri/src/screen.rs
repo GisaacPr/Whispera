@@ -726,6 +726,14 @@ pub(crate) fn frozen_dim(window:&tauri::WebviewWindow,rect:Option<Rect>,moving:b
         let _=session::emit_window(&frozen,"screen-frozen-dim",rect.map(|r|serde_json::json!({"x":r.x,"y":r.y,"width":r.width,"height":r.height,"moving":moving})));
     }
 }
+/// The image window keeps the committed area until release; tell it which part of
+/// itself the frame now covers (None: all of it), so it can dim the rest.
+fn ink_crop(app:&tauri::AppHandle,window:&tauri::WebviewWindow,ctx:&crate::screen_editor::Context,rect:Option<Rect>) {
+    if ctx.kind!="image" {return;}
+    let Some(ink)=app.get_webview_window(&session::label(window.label(),"screen-ink")) else {return};
+    let crop=rect.map(|r|Rect{x:r.x-ctx.rect.x,y:r.y-ctx.rect.y,width:r.width,height:r.height});
+    let _=session::emit_window(&ink,"screen-ink-crop",crop);
+}
 #[cfg(target_os = "macos")]
 pub(crate) fn set_frame_region(window: &tauri::WebviewWindow, rect: Option<Rect>) -> Result<(), String> {
     crate::screen_capture::macos::window_action(window, if rect.is_some() { 3 } else { 2 }, rect)
@@ -765,7 +773,7 @@ pub fn screen_frame_drag(app: tauri::AppHandle, window: tauri::WebviewWindow, ac
     // exposes the unpainted monitor-sized surface for a frame (a white flash at the
     // screen edges). Pointer capture still delivers moves outside the ring, and
     // screen_frame_preview moves the ring with the frame.
-    if !active {set_frame_region(&window,Some(ctx.rect))?;frozen_dim(&window,Some(ctx.rect),false);}
+    if !active {set_frame_region(&window,Some(ctx.rect))?;frozen_dim(&window,Some(ctx.rect),false);ink_crop(&app,&window,&ctx,None);}
     crate::screen_editor::raise_controls(&app);
     Ok(())
 }
@@ -778,6 +786,7 @@ pub fn screen_frame_preview(app:tauri::AppHandle,window:tauri::WebviewWindow,id:
     let next=crate::screen_capture::macos::bind(&window,next)?;
     set_frame_region(&window,Some(rect))?;
     frozen_dim(&window,Some(rect),true);
+    ink_crop(&app,&window,&ctx,Some(rect));
     // Preview docks only: image bytes and the recording region are committed on release.
     crate::screen_editor::preview_controls(&app,&window,next)
 }
