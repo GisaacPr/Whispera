@@ -1,1 +1,3 @@
-Capturas más fluidas y copia con Ctrl+C optimizada. Menor consumo en reposo, mejoras en biblioteca y transcripción incremental, y ajustes para evitar «gracias» provocado por ruido constante durante el silencio.
+Nueva carpeta realista 3D en Apariencia, con color personalizable.
+Capturas más rápidas y estables, y Ctrl+C sin demoras.
+Dictados largos más ágiles y grabadora que responde al instante al atajo.
