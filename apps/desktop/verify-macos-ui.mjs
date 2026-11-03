@@ -192,7 +192,7 @@ try {
       assert.deepEqual(await calls(settings, 'platform_permissions'), []);
     }
     await settings.getByRole('button', {name: 'Apariencia', exact: true}).click();
-    await settings.getByRole('heading', {name: mac ? 'Icono de barra de men\u00fas \u00b7 Cristal' : 'Icono de bandeja \u00b7 Cristal', exact: true}).waitFor();
+    await settings.getByLabel('Otros indicadores').getByText(mac ? /^Icono de barra de men\u00fas/ : /^Icono de bandeja/).waitFor();
     await settings.evaluate(() => {window.videoStatus.path = 'fixture.mp4'; window.videoStatus.copied = true;});
     await settings.getByRole('button', {name: 'Capturas y video', exact: true}).click();
     await settings.getByText(`Micr\u00f3fono de ${mac ? 'macOS' : 'Windows'}`, {exact: true}).waitFor();

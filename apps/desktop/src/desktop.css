@@ -96,7 +96,8 @@
 .artwork-model-name small { display:block; margin-top:5px; color:#858d7f; font-size:11px; }
 .artwork-picker .appearance-preview { min-width:0; }
 .desktop-app .text-link:not([data-slot]) { background: none; padding: 14px 0; color: #c3b5d7; font-size: 13px; }
-.color-values { display: flex; align-items: center; gap: 10px; margin-top: 18px; font-size: 12px; color: #7f8976; }
+/* The picker already shows the colour; its code stays available to screen readers only. */
+.color-values { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
 .color-values > span { width: 15px; height: 15px; border-radius: 4px; }
 .tray-samples { display: flex; gap: 32px; align-items: center; padding: 12px 0; }
 .tray-samples > span { display: flex; align-items: center; gap: 12px; color: #808b76; font-size: 11px; }
@@ -138,3 +139,24 @@
 .key-guide-link { margin-top: 22px; display: inline-flex; align-items: center; gap: 7px; color: #d0c0e5; text-decoration: none; font-size: 12px; }
 .key-guide-link:hover { text-decoration: underline; }
 @media (max-width: 540px) { .key-guide-modal { padding: 20px; border-radius: 18px; } .key-guide-modal .modal-heading { top: -20px; margin: -20px -20px 18px; padding: 20px 20px 15px; } .key-guide-steps article { grid-template-columns: 24px minmax(0,1fr); gap: 9px; } .key-guide-steps article > span { width: 23px; height: 23px; } }
+/* Appearance: app theme above, dictation folder below, so each colour picker sits with what it changes. */
+.appearance-divider { border:0; border-top:1px solid #ffffff1a; margin:34px 0 26px; }
+/* Same weight as the theme legend above, so both sections read as peers. */
+.desktop-app .appearance-section { margin:0; font-size:14px; font-weight:550; color:inherit; }
+.desktop-app .appearance-section-hint { margin:8px 0 16px; font-size:12px; font-weight:400; color:var(--app-muted,#b4a0b2); opacity:1; }
+/* The 3D folder is 321x270; the preview row is 200px tall, so show it smaller there instead of over the name. */
+.appearance-preview .realistic-folder { width:238px; height:200px; }
+/* The "Al día" badge already shows it; keep the result announced to screen readers only. */
+.update-current-status { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+/* Appearance lists (proposal B): compact rows split by hairlines, one list per subject. */
+.settings-list>.form-row { margin:0; padding:12px 0; border-bottom:1px solid #ffffff14; }
+.settings-list>.form-row:last-child { border-bottom:0; }
+.settings-list-title { margin:26px 0 4px; font-size:13px; font-weight:550; color:var(--app-muted,#b4a0b2); }
+.settings-list .tray-samples { gap:18px; padding:0; }
+.settings-list .appearance-indicators .indicator-artwork { width:56px; height:48px; }
+/* Colour row: the restore button keeps its slot even when hidden, so the picker never shifts. */
+.color-control { display:flex; align-items:center; gap:8px; }
+.color-restore { width:34px; height:34px; display:grid; place-items:center; padding:0; border:1px solid #ffffff2e; border-radius:10px; background:#ffffff0d; color:inherit; cursor:pointer; transition:opacity 140ms ease, background-color 140ms ease; }
+.color-restore:hover { background:#ffffff1f; }
+.color-restore:focus-visible { outline:2px solid currentColor; outline-offset:2px; }
+.color-restore[data-active="false"] { visibility:hidden; opacity:0; }

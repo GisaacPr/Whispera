@@ -32,7 +32,7 @@ try{
  await page.getByRole('button',{name:'Modelo siguiente',exact:true}).click();
  await page.waitForFunction(()=>window.savedSettings.dictationArtwork==='metallic');
  assert.equal(await page.locator('.appearance-preview img').getAttribute('src'),'/indicators/folder.png');
- assert.equal(await page.locator('#pattern').isDisabled(),true);
+ assert.equal(await page.locator('#pattern').count(),0,'the paper movement only exists for the original folder');
  await page.getByRole('button',{name:'Apariencia',exact:true}).click();
  assert.equal(await page.getByRole('button',{name:'Personalizado',exact:true}).count(),0,'appearance and colors share one page');
  await page.getByRole('button',{name:'Elegir color',exact:true}).click();
