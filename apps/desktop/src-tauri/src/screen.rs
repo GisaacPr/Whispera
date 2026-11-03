@@ -1817,7 +1817,10 @@ fn record(
     #[cfg(windows)]
     {
         let fits=|side:u32|(256..=4096).contains(&side);
-        let encoder=if fits(output_size.0)&&fits(output_size.1) {crate::replay::hardware_encoder(&binary).ok()} else {None};
+        // Fall back to libx264 when the card cannot open a session right now (another
+        // recording or the replay buffer may hold the sessions it allows).
+        let encoder=(if fits(output_size.0)&&fits(output_size.1) {crate::replay::hardware_encoder(&binary).ok()} else {None})
+            .filter(|name|crate::replay::encoder_opens(&binary,name,output_size));
         match encoder {
             Some(name) => capture_command.args(crate::replay::encoder_args(&name)),
             None => capture_command.args(["-c:v","libx264","-preset","veryfast","-tune","zerolatency","-crf","18"]),

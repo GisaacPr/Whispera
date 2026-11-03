@@ -152,6 +152,13 @@ pub(crate) fn hardware_encoder(binary:&Path)->Result<String,String>{
     }
     Err("No hay codificador de video por hardware compatible. La grabación hacia atrás queda detenida para evitar una carga continua en la CPU".into())
 }
+/// Opens a short session with the encoder at the real output size. A probe pass at
+/// launch does not guarantee a session now: consumer cards cap concurrent sessions.
+#[cfg(windows)]
+pub(crate) fn encoder_opens(binary:&Path,name:&str,size:(u32,u32))->bool{
+    let mut cmd=command(binary);cmd.args(["-hide_banner","-loglevel","error","-f","lavfi","-i",&format!("color=size={}x{}:rate=30",size.0,size.1),"-frames:v","2","-an"]).args(encoder_args(name)).args(["-f","null","-"]).stdout(Stdio::null()).stderr(Stdio::null());
+    run_command(&mut cmd,Duration::from_secs(3)).is_ok()
+}
 pub(crate) fn probe(binary:&Path,path:&Path)->Result<String,String>{
     let mut command=command(binary);command.args(["-hide_banner","-i"]).arg(path).stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::piped());
     let mut process=Encoder::spawn(&mut command)?;let stderr=process.child.stderr.take().ok_or("No se pudo leer el video")?;
