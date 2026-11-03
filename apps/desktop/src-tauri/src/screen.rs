@@ -515,16 +515,27 @@ fn select_locked(app: &tauri::AppHandle, screen: &Screen, kind: &str) -> Result<
         let _exclude = if !screen.secondary {app.get_webview_window("screen-ink")} else {None}
             .map(|w| w.hwnd().map_err(|e| e.to_string()).and_then(|h| crate::screen_capture::InkExclusion::new(windows::Win32::Foundation::HWND(h.0))))
             .transpose()?;
-        for (index, monitor) in monitors.iter().enumerate() {
+        let mut regions=Vec::new();
+        for monitor in monitors.iter() {
             #[cfg(windows)]
             let region = Region { x: monitor.position().x, y: monitor.position().y, width: monitor.size().width, height: monitor.size().height, ..Default::default() };
             #[cfg(target_os = "macos")]
             let region = crate::screen_capture::macos::monitor_region(monitor)?;
-            let frame=std::sync::Arc::new(crate::screen_capture::freeze(region)?);
+            regions.push(region);
+        }
+        // Freeze every monitor at once: one after another, each waited for its own
+        // vsync and copy, a large part of the time before the selector appears.
+        let frames=std::thread::scope(|scope| {
+            let jobs:Vec<_>=regions.iter().map(|&region| scope.spawn(move || crate::screen_capture::freeze(region))).collect();
+            jobs.into_iter().map(|job| job.join().unwrap_or_else(|_| Err("No se pudo congelar la pantalla".into()))).collect::<Result<Vec<_>,String>>()
+        })?;
+        for (index, frame) in frames.into_iter().enumerate() {
+            let frame=std::sync::Arc::new(frame);
             // Encode the preview while the overlay windows open, not when they ask for it.
             let warm=frame.clone();std::thread::spawn(move||{let _=warm.preview();});
             snapshots.insert(format!("{}select-{index}",if screen.secondary {"image-"}else{"screen-"}), frame);
         }
+
     }
     hide_selectors(app, screen);
     *screen.selection_started.lock().map_err(|_| "Captura ocupada")? = Some(selection_requested);
