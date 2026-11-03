@@ -159,3 +159,6 @@ html[data-screen-select="true"], html[data-screen-select="true"] body, html[data
 .screen-frozen-dim { position:absolute; pointer-events:none; box-shadow:0 0 0 1px #ffffff5c,0 0 0 100vmax #0004; }
 /* Shrinking the frame: the image window dims what falls outside it until release. */
 .screen-ink-dim { position:fixed; z-index:4; pointer-events:none; box-shadow:0 0 0 100vmax #0004; }
+/* Always draw the selection edge in its own window so it never depends on the frozen dim arriving. */
+.screen-selection-rect,.editable-capture-frame,.screen-recording-frame { box-shadow:0 0 0 1px #fffc,0 0 0 2px #0006 !important; }
+.screen-selection-rect[data-dragging="true"] { box-shadow:0 0 0 1px #fffc,0 0 0 2px #0006,0 0 0 100vmax #0004 !important; }
