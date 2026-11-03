@@ -153,12 +153,28 @@ pub(crate) fn rgba_png(image: &image::RgbaImage) -> Result<Vec<u8>, String> {
         .map_err(|e| e.to_string())?;
     Ok(png)
 }
-/// Keep the frozen desktop uncompressed. Only the selected rectangle becomes PNG.
+/// The frozen desktop stays uncompressed in memory; previews sent to the webviews are PNG.
 pub struct FrozenFrame {
     region: Region,
     bgra: Vec<u8>,
 }
 impl FrozenFrame {
+    /// Lossless preview for the selector and the editor. A desktop is mostly flat UI and text,
+    /// so a fast PNG is ~40x smaller than the raw BMP (3440x1440: 20 MB -> ~0.5 MB). Moving
+    /// 20 MB into each webview cost more than encoding. Falls back to BMP if encoding fails.
+    pub fn preview(&self) -> Vec<u8> {
+        let mut rgb = Vec::with_capacity(self.bgra.len() / 4 * 3);
+        for pixel in self.bgra.chunks_exact(4) {
+            rgb.extend_from_slice(&[pixel[2], pixel[1], pixel[0]]);
+        }
+        let mut png = Vec::new();
+        match PngEncoder::new_with_quality(&mut png, CompressionType::Fast, FilterType::Sub)
+            .write_image(&rgb, self.region.width, self.region.height, image::ExtendedColorType::Rgb8)
+        {
+            Ok(()) => png,
+            Err(_) => self.preview_bmp(),
+        }
+    }
     pub fn preview_bmp(&self) -> Vec<u8> {
         // Top-down 32-bit BI_RGB: browsers can display this without PNG compression.
         let mut bmp = Vec::with_capacity(54 + self.bgra.len());
@@ -319,6 +335,17 @@ mod tests {
         assert!(frame.crop_png(Region { x: -4, y: -1, width: 2, height: 1, ..Default::default() }).is_err());
         assert!(frame.crop_png(Region { x: -2, y: -1, width: 3, height: 1, ..Default::default() }).is_err());
         assert!(frame.crop_png(Region { x: -2, y: -1, width: 0, height: 1, ..Default::default() }).is_err());
+    }
+    #[test]
+    fn preview_is_a_lossless_opaque_png_of_the_frozen_pixels() {
+        // GDI leaves alpha at 0; the preview must still be fully opaque and pixel exact.
+        let region = Region { x: -3, y: -2, width: 3, height: 2, ..Default::default() };
+        let bgra = vec![1,2,3,0, 4,5,6,0, 7,8,9,0, 10,11,12,0, 13,14,15,0, 16,17,18,0];
+        let preview = FrozenFrame { region, bgra }.preview();
+        assert_eq!(&preview[..8], b"\x89PNG\r\n\x1a\n");
+        let decoded = image::load_from_memory(&preview).unwrap().into_rgba8();
+        assert_eq!((decoded.width(), decoded.height()), (3, 2));
+        assert_eq!(decoded.as_raw(), &[3,2,1,255, 6,5,4,255, 9,8,7,255, 12,11,10,255, 15,14,13,255, 18,17,16,255]);
     }
     #[test]
     #[cfg(windows)]

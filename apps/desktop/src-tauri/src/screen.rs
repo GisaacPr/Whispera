@@ -786,9 +786,15 @@ pub fn screen_selection_image(app:tauri::AppHandle, window: tauri::WebviewWindow
     let snapshots = screen.snapshots.lock().map_err(|_| "Captura ocupada")?;
     let source=session::frozen_source(window.label()).unwrap_or_else(||window.label().into());
     selection_stage(&screen, "imagen pedida");
-    let bytes = snapshots.get(&source).map(|frame| frame.preview_bmp()).unwrap_or_default();
+    let bytes = snapshots.get(&source).map(|frame| frame.preview()).unwrap_or_default();
     selection_stage(&screen, "imagen enviada");
     Ok(tauri::ipc::Response::new(bytes))
+}
+/// Frame pacing of an area drag, measured in the selector: the drag runs in a transparent
+/// full-monitor window, so its smoothness can only be observed on the real desktop.
+#[tauri::command]
+pub fn screen_selection_frames(app: tauri::AppHandle, frames: u32, p95: f64, max: f64) {
+    let _ = app.state::<Store>().event(&format!("Seleccion de area: {frames} cuadros; p95 {p95:.0} ms; peor {max:.0} ms"));
 }
 #[tauri::command]
 pub fn screen_editor_background(app:tauri::AppHandle,id:String)->Result<tauri::ipc::Response,String> {
@@ -796,7 +802,7 @@ pub fn screen_editor_background(app:tauri::AppHandle,id:String)->Result<tauri::i
     let screen=session::screen(&app,&id);
     let snapshots=screen.snapshots.lock().map_err(|_|"Captura ocupada")?;
     let frame=snapshots.get(&ctx.source_label).ok_or("Pantalla congelada no disponible")?;
-    Ok(tauri::ipc::Response::new(frame.preview_bmp()))
+    Ok(tauri::ipc::Response::new(frame.preview()))
 }
 fn frozen_generation(screen:&Screen)->Option<u64> {
     let kind=screen.kind.lock().ok()?.clone();

@@ -4,6 +4,7 @@ import type {UnlistenFn} from '@tauri-apps/api/event';
 import {listenCapture as listen} from './capture-events';
 import {showWhenReady} from './screen-ready';
 import './screen-recorder.css';
+import {frozenImageType} from './frozen-image';
 
 // A static, capture-excluded desktop underneath the independent ink and border.
 // It consumes clicks outside the editor without activating the real app behind it.
@@ -16,7 +17,7 @@ export default function ScreenFrozen() {
       const bytes=await invoke<ArrayBuffer>('screen_selection_image');
       if(!alive||request!==revision)return;
       if(!bytes.byteLength)throw Error('No se pudo preparar la pantalla congelada');
-      const next=URL.createObjectURL(new Blob([bytes],{type:'image/bmp'}));
+      const next=URL.createObjectURL(new Blob([bytes],{type:frozenImageType(bytes)}));
       try {
         const image=new Image();image.src=next;await image.decode();
         if(!alive||request!==revision){URL.revokeObjectURL(next);return;}

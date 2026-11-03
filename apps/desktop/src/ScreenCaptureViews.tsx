@@ -10,6 +10,7 @@ import EditableCaptureFrame,{type CaptureContext} from './EditableCaptureFrame';
 import {commandKey,isMac} from './platform';
 import MonitorPicker,{type MonitorInfo} from './MonitorPicker';
 import './screen-recorder.css';
+import {frozenImageType} from './frozen-image';
 
 type Appearance = Pick<Settings,'color'|'pattern'|'recorderScale'> & {frameColor:string};
 type Status = { phase: string; seconds: number; path: string; error: string; copied: boolean; notice?: string };
@@ -38,7 +39,7 @@ export function ScreenOverlay() {
       ]);
       if(!alive||id!==resetId)return;
       if(imageUrl)URL.revokeObjectURL(imageUrl);
-      imageUrl=bytes&&bytes.byteLength?URL.createObjectURL(new Blob([bytes],{type:'image/bmp'})):undefined;
+      imageUrl=bytes&&bytes.byteLength?URL.createObjectURL(new Blob([bytes],{type:frozenImageType(bytes)})):undefined;
       if(imageUrl){const image=new Image();image.src=imageUrl;await image.decode();}
       if(!alive||id!==resetId)return;
       setSnapshot(imageUrl);setFrameColor(appearance.frameColor??'#ffffff');setStage(undefined);setEditor(undefined);setKind(mode);setEpoch(v=>v+1);setInitialized(true);
@@ -106,6 +107,8 @@ export function ScreenSelection({kind='video',frameColor='#ffffff',snapshot,onPr
     tilePress.current=tile?Number(tile.dataset.index):null;
     e.currentTarget.setPointerCapture(e.pointerId);
     anchor.current = boundedPoint(e.clientX,e.clientY); setOrigin(anchor.current); setEnd(anchor.current); setError('');
+    // Frame pacing while dragging, reported on release (see screen_selection_frames).
+    const gaps:number[]=[];let last=performance.now();const pace=(now:number)=>{gaps.push(now-last);last=now;if(anchor.current)requestAnimationFrame(pace);else if(gaps.length>4){gaps.sort((x,y)=>x-y);void invoke('screen_selection_frames',{frames:gaps.length,p95:gaps[Math.floor(gaps.length*.95)],max:gaps[gaps.length-1]}).catch(()=>{});}};requestAnimationFrame(pace);
   }} onPointerMove={e => { if (anchor.current && !busy) setEnd(boundedPoint(e.clientX,e.clientY)); }} onPointerUp={async e => {
     const start = anchor.current; anchor.current = undefined;
     if (!start || busy) return;

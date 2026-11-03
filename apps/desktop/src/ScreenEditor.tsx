@@ -15,6 +15,7 @@ import IndicatorArtwork from './IndicatorArtwork';
 import type {CaptureContext} from './EditableCaptureFrame';
 import { commandKey, isMac } from './platform';
 import {InkLayer} from './screen-ink-cache';
+import {frozenImageType} from './frozen-image';
 
 type Context = CaptureContext;
 type Action = { action: string; value?: string };
@@ -211,7 +212,8 @@ function Ink({ context }: { context: Context }) {
       const full=!!context.rect;
       const bytes=await invoke<ArrayBuffer|number[]>(full?'screen_editor_background':'screen_editor_image',{id:context.id});
       if(!alive)return;
-      url=URL.createObjectURL(new Blob([bytes instanceof ArrayBuffer?bytes:new Uint8Array(bytes)],{type:full?'image/bmp':'image/png'}));
+      const data=bytes instanceof ArrayBuffer?bytes:new Uint8Array(bytes);
+      url=URL.createObjectURL(new Blob([data],{type:full?frozenImageType(data):'image/png'}));
       const image=new Image();image.src=url;await image.decode();
       if(!alive)return;background.current=image;fullBackground.current=full;draw();
       // Re-cropping an already visible editor must not steal focus from its controls.

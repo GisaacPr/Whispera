@@ -681,6 +681,7 @@ fn main() {
             screen::screen_select_image,
             screen::screen_selection_kind,
             screen::screen_selection_image,
+            screen::screen_selection_frames,
             screen::screen_editor_background,
             screen::screen_frozen_state,
             screen::screen_frozen_ready,
