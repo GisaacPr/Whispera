@@ -57,7 +57,7 @@ try {
   assert.deepEqual(frame, { x: 200, y: 200, width: 400, height: 250 });
   assert.equal(await page.getByTestId('recording-frame').evaluate(el=>getComputedStyle(el).borderRadius),'14px');
   await page.emulateMedia({reducedMotion:'reduce'});
-  assert.equal(await page.locator('.capture-border-beam').evaluate(el=>getComputedStyle(el).display),'none');
+  assert.equal(await page.locator('.capture-border-beam').count(),0,'the recording frame has no animated beam');
   await page.emulateMedia({reducedMotion:'no-preference'});
   assert.equal(await page.locator('[data-slot="folder"]').count(), 0);
   assert.equal(await page.locator('.screen-indicator').evaluate(el => getComputedStyle(el).pointerEvents), 'none');

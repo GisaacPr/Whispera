@@ -14,39 +14,29 @@ try {
     const frame=page.getByTestId('recording-frame');await page.locator('.capture-frame-handle-se').waitFor();
     assert.equal(await page.locator('.capture-frame-handle').count(),8);
     assert.equal(await frame.evaluate(e=>getComputedStyle(e).borderRadius),'14px');
-    assert.equal(await page.locator('.capture-border-beam').count(),1);
-    async function assertBeamAligned() {
-      const geometry=await frame.evaluate(e=>{
-        const border=e.getBoundingClientRect(),svg=e.querySelector('svg'),path=svg.querySelector('rect'),box=svg.getBoundingClientRect();
-        const thickness=parseFloat(getComputedStyle(e).borderTopWidth);
-        return {left:box.x+path.x.baseVal.value-border.x,top:box.y+path.y.baseVal.value-border.y,right:box.x+path.x.baseVal.value+path.width.baseVal.value-border.x,bottom:box.y+path.y.baseVal.value+path.height.baseVal.value-border.y,thickness,width:border.width,height:border.height,radius:path.rx.baseVal.value,borderRadius:parseFloat(getComputedStyle(e).borderRadius)};
-      });
-      assert.equal(geometry.left,geometry.thickness/2,'shine follows the border centerline');
-      assert.equal(geometry.top,geometry.thickness/2);
-      assert.equal(geometry.right,geometry.width-geometry.thickness/2);
-      assert.equal(geometry.bottom,geometry.height-geometry.thickness/2);
-      assert.equal(geometry.radius,geometry.borderRadius-geometry.thickness/2);
+    assert.equal(await page.locator('.capture-border-beam').count(),0,'the border has no animated beam layer');
+    // A static border: nothing animates, so the monitor-sized selector is not repainted while editing.
+    async function assertStaticBorder() {
+      assert.equal(await frame.evaluate(e=>e.getAnimations({subtree:true}).length),0,'the capture border never animates');
+      assert.equal(await frame.evaluate(e=>getComputedStyle(e).borderTopWidth),'2px');
     }
-    await assertBeamAligned();
+    await assertStaticBorder();
     async function drag(locator,dx,dy) {
       // A committed crop still has two paint frames to finish. Raw mouse input
       // bypasses Playwright actionability and would otherwise hit a disabled handle.
       await page.waitForFunction(element=>!element.disabled,await locator.elementHandle());
       const box=await locator.boundingBox();const x=box.x+box.width/2,y=box.y+box.height/2;
-      await frame.evaluate(e=>{window.originalBorder=e;window.originalBeam=e.querySelector('svg');});
+      await frame.evaluate(e=>{window.originalBorder=e;});
       const committed=await page.evaluate(()=>structuredClone(window.editorContext.rect));
       const crops=await page.evaluate(()=>window.calls.filter(c=>c.command==='screen_resize_region').length);
       await page.mouse.move(x,y);await page.mouse.down();await page.mouse.move(x+dx,y+dy,{steps:4});
       await page.waitForFunction(()=>JSON.stringify(window.previewRect)!==JSON.stringify(window.editorContext.rect));
       assert.deepEqual(await page.evaluate(()=>window.editorContext.rect),committed,'drag previews do not recrop images or change the video region');
       assert.equal(await page.evaluate(()=>window.calls.filter(c=>c.command==='screen_resize_region').length),crops);
-      assert.equal(await frame.evaluate(e=>e===window.originalBorder&&e.querySelector('svg')===window.originalBeam),true,'same animated border remains during dragging');
+      assert.equal(await frame.evaluate(e=>e===window.originalBorder),true,'the same border element stays during dragging');
       assert.equal(await frame.evaluate(e=>getComputedStyle(e).borderColor),'rgb(255, 255, 255)');
       assert.equal(await frame.evaluate(e=>getComputedStyle(e).outlineStyle),'none');
-      const beam=await page.locator('.capture-border-beam rect').first().evaluate(e=>({name:getComputedStyle(e).animationName,visibility:getComputedStyle(e).visibility}));
-      assert.equal(beam.name,'none','the capture border is static: an animated beam repainted the monitor-sized selector every frame and flickered when it replayed');
-      assert.equal(beam.visibility,'hidden');
-      await assertBeamAligned();
+      await assertStaticBorder();
       await page.mouse.up();
       await page.waitForFunction(()=>window.calls.at(-1)?.command==='screen_frame_drag'&&window.calls.at(-1).args.active===false);
     }

@@ -12,15 +12,9 @@ html[data-screen-select="true"], html[data-screen-select="true"] body, html[data
 .screen-indicator { position: fixed; inset: 0; pointer-events: none; background: transparent; }
 .screen-frozen-desktop { position:fixed; inset:0; background-size:100% 100%; background-repeat:no-repeat; pointer-events:auto; touch-action:none; user-select:none; }
 /* Only three short strokes animate; no canvas loop or React frame updates. */
-.capture-frame { position:absolute; border:2px solid #fff; box-sizing:border-box; pointer-events:none; background:transparent; outline:1px solid #0006; }
-.capture-border-beam { position:absolute; left:-2px; top:-2px; width:calc(100% + 4px); height:calc(100% + 4px); overflow:visible; color:var(--capture-frame-color,#fff); }
-/* A still border. The travelling beam repainted the monitor-sized transparent selector window
-   every frame (lag on large displays) and, as a single lap, replayed whenever the frame redrew,
-   which read as flicker. The element stays for layout; it is just not shown. */
-.capture-border-beam { visibility:hidden; }
-.capture-border-beam rect { animation:none; }
+/* Thin line in the chosen colour with a dark contour, readable over light and dark content. */
+.capture-frame { position:absolute; border:2px solid #fff; box-sizing:border-box; pointer-events:none; background:transparent; outline:1px solid #0009; }
 .screen-image-frame { inset:0; z-index:3; }
-@media(prefers-reduced-motion:reduce) { .capture-border-beam { display:none; } }
 @media print { .capture-frame { display:none; } }
 .screen-folder-indicator { position: absolute; pointer-events: none; }
 .screen-folder-caption { position: absolute; left: 24px; bottom: 27px; z-index: 8; pointer-events: none; }
@@ -30,6 +24,8 @@ html[data-screen-select="true"], html[data-screen-select="true"] body, html[data
 .screen-selection-help { border:1px solid #ffffff20; box-shadow:0 8px 32px #0003; }
 .screen-selection-help kbd { margin-left:14px; font:11px 'Segoe UI',sans-serif; color:#aaa; }
 .screen-recording-frame[data-image="true"] { box-shadow:0 0 0 100vmax #0004; }
+/* Images dim what stays outside while you adjust; video does not, it would darken your screen while recording. */
+.editable-capture-frame[data-image="true"] { box-shadow:0 0 0 100vmax #0004; }
 .screen-ink { position:fixed; inset:0; background:transparent; touch-action:none; user-select:none; cursor:crosshair; }
 .screen-ink[data-tool="pointer"] { cursor:default; }
 .screen-ink[data-tool="text"] { cursor:text; }
@@ -113,12 +109,15 @@ html[data-screen-select="true"], html[data-screen-select="true"] body, html[data
 .capture-frame-move,.capture-frame-handle { position:absolute; pointer-events:auto; touch-action:none; padding:0; margin:0; border:0; background:transparent; }
 .capture-frame-move { inset:-5px; border:10px solid transparent; border-radius:inherit; cursor:move; clip-path:polygon(0 0,100% 0,100% 100%,0 100%,0 0,10px 10px,10px calc(100% - 10px),calc(100% - 10px) calc(100% - 10px),calc(100% - 10px) 10px,10px 10px); }
 .capture-frame-handle { width:16px; height:16px; transform:translate(-50%,-50%); }
-.capture-frame-handle::after { content:''; position:absolute; inset:5px; border:1px solid var(--capture-frame-color,#fff); background:var(--capture-frame-color,#fff); border-radius:2px; opacity:.85; }
-.capture-frame-handle:hover::after { opacity:1; box-shadow:0 0 0 2px #ffffff40; }
+.capture-frame-handle::after { content:''; position:absolute; inset:3px; border:1.5px solid #000a; background:var(--capture-frame-color,#fff); border-radius:50%; box-shadow:0 1px 3px #0006; }
+.capture-frame-handle:hover::after { box-shadow:0 0 0 3px #ffffff59,0 1px 3px #0006; }
 .capture-frame-handle-n { left:50%;top:0;cursor:ns-resize; }.capture-frame-handle-ne {left:100%;top:0;cursor:nesw-resize;}
 .capture-frame-handle-e {left:100%;top:50%;cursor:ew-resize;}.capture-frame-handle-se {left:100%;top:100%;cursor:nwse-resize;}
 .capture-frame-handle-s {left:50%;top:100%;cursor:ns-resize;}.capture-frame-handle-sw {left:0;top:100%;cursor:nesw-resize;}
 .capture-frame-handle-w {left:0;top:50%;cursor:ew-resize;}.capture-frame-handle-nw {left:0;top:0;cursor:nwse-resize;}
+/* The frame has the export's 14 px rounded corners: draw the corner dots on the arc (14·(1−cos 45°) ≈ 4 px in);
+   the grab area stays on the corner. */
+.capture-frame-handle-nw::after{transform:translate(4px,4px)}.capture-frame-handle-ne::after{transform:translate(-4px,4px)}.capture-frame-handle-se::after{transform:translate(-4px,-4px)}.capture-frame-handle-sw::after{transform:translate(4px,-4px)}
 .capture-frame-error { position:absolute; padding:5px 9px; border-radius:6px; background:#18181b; color:#fff; font-size:12px; }
 .capture-hud-esc { display:inline-flex; align-items:center; gap:6px; padding:0 10px; height:28px; border-radius:8px; background:#ff5f6226; color:#ffd9d9; font-size:12px; font-weight:600; white-space:nowrap; animation:capture-hud-esc-in .18s ease-out; }
 .capture-hud-esc kbd { padding:1px 6px; border-radius:5px; background:#ffffff1f; font:inherit; font-size:11px; }
