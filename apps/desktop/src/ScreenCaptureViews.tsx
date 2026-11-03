@@ -135,7 +135,7 @@ export function ScreenSelection({kind='video',frameColor='#ffffff',snapshot,onPr
   }} onPointerCancel={interruptSelection} onLostPointerCapture={interruptSelection}>
     <div className="screen-selection-help" role="status">{busy ? 'Preparando…' : error || (kind==='image'?'Seleccioná el área para capturar.':'Seleccioná el área. Al soltar empieza a grabar.')} <kbd>{commandKey}+A: pantalla completa</kbd><kbd>Esc: salir</kbd></div>
     {kind==='video'&&!(rect&&(rect.width>5||rect.height>5))&&<MonitorPicker monitors={monitors} current={current} busy={busy} onPick={pickMonitor}/>}
-    {rect && <CaptureFrame className="screen-selection-rect" dragging={!frozenDim} width={rect.width} height={rect.height} color={frameColor} style={{left:rect.x,top:rect.y}}/>}
+    {rect && <CaptureFrame className="screen-selection-rect" image={kind==='image'} dragging={!frozenDim} width={rect.width} height={rect.height} color={frameColor} style={{left:rect.x,top:rect.y}}/>}
   </div>;
 }
 

@@ -104,7 +104,10 @@ html[data-screen-select="true"], html[data-screen-select="true"] body, html[data
 .editable-capture-frame { pointer-events:none; outline:none; }
 /* While choosing and adjusting the area there is no line: the round handles (in the frame colour)
    and, for images, the dimmed outside mark it. The video recording indicator keeps its line. */
-.editable-capture-frame,.screen-selection-rect,.screen-image-frame,.screen-recording-frame[data-image="true"] { border-color:transparent !important; outline:none; }
+/* Image and video look the same: no line, the round handles and a faint light hairline. */
+.editable-capture-frame,.screen-selection-rect,.screen-image-frame,.screen-recording-frame { border-color:transparent !important; outline:none; }
+/* Video has no frozen desktop below to draw the hairline, so its own frame does. */
+.editable-capture-frame:not([data-image="true"]),.screen-recording-frame:not([data-image="true"]) { box-shadow:0 0 0 1px #ffffff5c; }
 /* Focus belongs to the existing frame, never a second full-screen contour. */
 .capture-frame-move:focus-visible {outline:none;box-shadow:inset 0 0 0 1px var(--capture-frame-color,#fff);}
 .capture-frame-handle:focus-visible {outline:2px solid var(--capture-frame-color,#fff);outline-offset:0;}
