@@ -899,6 +899,12 @@ pub fn screen_editor_action(
                 w.set_focus().map_err(|e| e.to_string())?;
             }
         }
+        // A drawing tool locks the frame: its edge ring lets clicks through so
+        // drawing near the border never grabs a handle. The pointer unlocks it.
+        if let Some(selector) = app.get_webview_window(&ctx.source_label) {
+            selector.set_ignore_cursor_events(tool != "pointer")
+                .map_err(|e| e.to_string())?;
+        }
         raise_controls(&app);
     }
     app.emit_to(
