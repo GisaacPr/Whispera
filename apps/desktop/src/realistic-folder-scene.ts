@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {folderPalette} from './folder-palette';
 
 // 3D folder for the "realistic" dictation artwork: while active, audio bars turn into text,
 // the sheet drops into the folder and the folder closes with a seal light (7 s loop).
@@ -11,7 +12,7 @@ const LOOK = { face: { color: '#0f0f13', metalness: 0.25, roughness: 0.16, clear
 // transcribing: waveform -> text -> sheet into the folder -> close, looping. complete: the rest of
 // that sequence once, sped up, so it fits before the recorder hides. demo: the whole design loop.
 export type RealisticFolderMode = 'idle' | 'listening' | 'transcribing' | 'complete' | 'demo';
-export type RealisticFolderScene = { setMode(mode: RealisticFolderMode): void; setPixelRatio(ratio: number): void; setTime(time: string): void; dispose(): void };
+export type RealisticFolderScene = { setMode(mode: RealisticFolderMode): void; setPixelRatio(ratio: number): void; setTime(time: string): void; setColor(color?: string): void; dispose(): void };
 
 // Cycle positions (0..1) of the design timeline.
 const LISTEN_HOLD = 0.21, CONVERT_START = 0.21;
@@ -148,7 +149,7 @@ export function createRealisticFolderScene(canvas: HTMLCanvasElement, width: num
   const TIME_W = 2.15, TIME_H = 0.49, TIME_X = -0.1, TIME_Y = 0.72;
   const timeCanvas = document.createElement('canvas'); timeCanvas.width = 768; timeCanvas.height = 174;
   const timeTexture = track(new THREE.CanvasTexture(timeCanvas)); timeTexture.colorSpace = THREE.SRGBColorSpace; timeTexture.anisotropy = 8;
-  let shownTime = '';
+  let shownTime = '', timerStops = folderPalette().timer;
   const paintTime = (text: string) => {
     const g = timeCanvas.getContext('2d')!, w = timeCanvas.width, h = timeCanvas.height;
     g.clearRect(0, 0, w, h);
@@ -158,7 +159,7 @@ export function createRealisticFolderScene(canvas: HTMLCanvasElement, width: num
     const cell = 92, colon = 46, widths = [...text].map(c => c === ':' ? colon : cell);
     let x = (w - widths.reduce((a, b) => a + b, 0)) / 2;
     const gold = g.createLinearGradient(0, h * 0.12, 0, h * 0.9);
-    gold.addColorStop(0, '#fff1c4'); gold.addColorStop(0.45, '#e2b65e'); gold.addColorStop(1, '#9a6a22');
+    gold.addColorStop(0, timerStops[0]); gold.addColorStop(0.45, timerStops[1]); gold.addColorStop(1, timerStops[2]);
     [...text].forEach((c, i) => {
       const cx = x + widths[i] / 2, cy = h / 2 + 4;
       g.fillStyle = 'rgba(0,0,0,.75)'; g.fillText(c, cx + 3, cy + 4); // engraved shadow
@@ -249,7 +250,8 @@ export function createRealisticFolderScene(canvas: HTMLCanvasElement, width: num
   const tip = rp[rp.length - 1]; rv.push(tip.x, tip.y - 0.07, tip.z - 0.005);
   const tipI = rv.length / 3 - 1, la = (rp.length - 1) * 2; ri.push(la, la + 1, tipI);
   ribbonGeo.setAttribute('position', new THREE.Float32BufferAttribute(rv, 3)); ribbonGeo.setIndex(ri); ribbonGeo.computeVertexNormals();
-  const ribbon = new THREE.Mesh(ribbonGeo, track(new THREE.MeshPhysicalMaterial({ color: LOOK.ribbon, roughness: 0.5, envMapIntensity: 0.35, side: THREE.DoubleSide })));
+  const ribbonMat = track(new THREE.MeshPhysicalMaterial({ color: LOOK.ribbon, roughness: 0.5, envMapIntensity: 0.35, side: THREE.DoubleSide }));
+  const ribbon = new THREE.Mesh(ribbonGeo, ribbonMat);
   ribbon.castShadow = true; body.add(ribbon);
 
   // Waveform pearls that become text lines.
@@ -376,6 +378,16 @@ export function createRealisticFolderScene(canvas: HTMLCanvasElement, width: num
 
   return {
     setMode,
+    setColor(color?: string) {
+      const p = folderPalette(color);
+      faceMat.color.set(p.face); edgeMat.color.set(p.trim); goldMat.color.set(p.trim);
+      accentColor.set(p.accent); accentMat.emissive.set(p.glow);
+      sealMat.color.set(p.glow).multiplyScalar(2);
+      haloMat.color.set(p.glow); spMat.color.set(p.glow); floorGlowMat.color.set(p.glow);
+      ribbonMat.color.set(p.ribbon);
+      timerStops = p.timer; paintTime(shownTime);
+      if (!raf) draw(0, t);
+    },
     setTime(text: string) {
       if (text === shownTime) return;
       paintTime(shownTime = text);

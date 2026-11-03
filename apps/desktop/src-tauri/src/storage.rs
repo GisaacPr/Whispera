@@ -21,6 +21,8 @@ pub struct Settings {
     pub dictation_artwork: String,
     pub metallic_color: String,
     pub metallic_original: bool,
+    /// Colour per dictation folder model (see ARTWORKS); a missing entry keeps its original look.
+    pub artwork_colors: std::collections::BTreeMap<String, String>,
     pub app_theme: String,
     pub app_background: String,
     pub trim_silence: bool,
@@ -49,6 +51,7 @@ impl Default for Settings {
             dictation_artwork: "original".into(),
             metallic_color: "#ffffff".into(),
             metallic_original: true,
+            artwork_colors: Default::default(),
             app_theme: "plum".into(),
             app_background: String::new(),
             trim_silence: true,
@@ -60,14 +63,21 @@ impl Default for Settings {
         }
     }
 }
+/// Dictation folder models; mirrors artworkModels in artwork-models.ts.
+pub const ARTWORKS: [&str; 3] = ["original", "metallic", "realistic"];
 impl Settings {
     pub fn validate(&self) -> Result<(), String> {
         if !self.app_background.is_empty() && (self.app_background.len()!=7 || !self.app_background.starts_with('#') || !self.app_background[1..].bytes().all(|b|b.is_ascii_hexdigit())) {return Err("Color de fondo inválido".into());}
         if !["plum","graphite","navy","forest","slate","sand"].contains(&self.app_theme.as_str()) {
             return Err("Tema de aplicación no admitido".into());
         }
-        if !["original", "metallic", "realistic"].contains(&self.dictation_artwork.as_str()) {
+        if !ARTWORKS.contains(&self.dictation_artwork.as_str()) {
             return Err("Indicador de dictado no admitido".into());
+        }
+        for (artwork, color) in &self.artwork_colors {
+            if !ARTWORKS.contains(&artwork.as_str()) || color.len()!=7 || !color.starts_with('#') || !color[1..].bytes().all(|b|b.is_ascii_hexdigit()) {
+                return Err("Color de carpeta inválido".into());
+            }
         }
         if self.metallic_color.len()!=7 || !self.metallic_color.starts_with('#') || !self.metallic_color[1..].bytes().all(|b|b.is_ascii_hexdigit()) {
             return Err("Color de carpeta metálica inválido".into());

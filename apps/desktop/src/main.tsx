@@ -14,6 +14,7 @@ import "@fontsource-variable/instrument-sans";
 import ControlledFolder from "./ControlledFolder";
 import IndicatorArtwork from "./IndicatorArtwork";
 import RealisticFolder from "./RealisticFolder";
+import {artworkColor, artworkModel, artworkModels} from "./artwork-models";
 import PalettePanel from "./PalettePanel";
 import RecorderPreview from "./RecorderPreview";
 import Recorder from "./Recorder";
@@ -55,7 +56,6 @@ const routes = [
   { id: "diagnostics", name: "Diagnóstico", icon: Activity },
 ] as const;
 type Route = typeof routes[number]["id"];
-const artworkModels = [{id:'original',name:'Carpeta animada original'},{id:'metallic',name:'Carpeta metálica'},{id:'realistic',name:'Carpeta realista 3D'}] as const;
 const descriptions: Record<Route, string> = {
   transcription: "Tu voz, con tus preferencias.", dictionary: "Las palabras que tienen que salir bien.",
   appearance: "Tus indicadores, a tu manera.",
@@ -119,8 +119,9 @@ function SettingsApp({sidebarExpanded}:{sidebarExpanded:boolean}) {
   };
   if (!data) return <div className="desktop-loading" role="status">{message || "Cargando configuración…"}</div>;
   const patch = (change: Partial<api.Settings>) => {dirty.current={...dirty.current,...change};autosave.queue({...dirty.current});setData(d=>d?{...d,settings:{...d.settings,...change}}:d);};
-  const appearanceColor=data.settings.dictationArtwork==='metallic'?(data.settings.metallicColor??'#ffffff'):data.settings.color;
-  const artworkIndex=Math.max(0,artworkModels.findIndex(model=>model.id===(data.settings.dictationArtwork??'original')));
+  const artwork=artworkModel(data.settings.dictationArtwork);
+  const appearanceColor=artwork.color(data.settings);
+  const artworkIndex=artworkModels.indexOf(artwork);
   const changeArtwork=(direction:number)=>patch({dictationArtwork:artworkModels[(artworkIndex+direction+artworkModels.length)%artworkModels.length].id});
   const rules = data.rules.filter(r => `${r.source} ${r.target}`.toLowerCase().includes(search.toLowerCase()));
   const history = data.history.filter(r => r.text.toLowerCase().includes(search.toLowerCase()));
@@ -172,9 +173,9 @@ function SettingsApp({sidebarExpanded}:{sidebarExpanded:boolean}) {
 
         {route === "appearance" && <>
           <AppThemePicker value={data.settings.appTheme} background={data.settings.appBackground} onChange={appTheme=>patch({appTheme,appBackground:''})} onBackgroundChange={appBackground=>patch({appBackground})}/>
-          <div className="artwork-picker" role="group" aria-label="Modelo de carpeta"><button className="artwork-arrow" aria-label="Modelo anterior" onClick={()=>changeArtwork(-1)}><ChevronLeft size={22}/></button><div className="appearance-preview">{data.settings.dictationArtwork==='realistic'?<RealisticFolder mode="demo" fallback={<ControlledFolder color="black" customColor={data.settings.color} size="sm" visualState="rest" />}/>:data.settings.dictationArtwork==='metallic'?<IndicatorArtwork kind="folder" original={data.settings.metallicOriginal??true} color={data.settings.metallicColor??'#ffffff'}/>:<ControlledFolder color="black" customColor={data.settings.color} size="sm" visualState="rest" />}</div><button className="artwork-arrow" aria-label="Modelo siguiente" onClick={()=>changeArtwork(1)}><ChevronRight size={22}/></button></div><div className="artwork-model-name" aria-live="polite">{artworkModels[artworkIndex].name}<small>{artworkIndex+1} / {artworkModels.length}</small></div>
-          {data.settings.dictationArtwork!=='realistic'&&<><h3>Color de carpeta</h3><div className="form-row"><label>Color de carpeta<span>{data.settings.dictationArtwork==='metallic'?'Tinte metálico · conserva sombras y reflejos':'Superficie, bordes e iconos'}</span></label><PalettePanel value={{ base: "black", hex: appearanceColor }} onChange={value => patch(data.settings.dictationArtwork==='metallic'?{metallicColor:selectionHex(value),metallicOriginal:false}:{color:selectionHex(value)})} /></div>{data.settings.dictationArtwork==='metallic'&&<button className="text-link" onClick={()=>patch({metallicColor:'#ffffff',metallicOriginal:true})}>Restaurar color original</button>}<div className="color-values"><span style={{ background: appearanceColor }} /><code>{appearanceColor.toUpperCase()}</code></div></>}
-            <h3>Carpeta de transcripción</h3><div className="form-row"><label htmlFor="pattern">Movimiento de los papeles</label><select id="pattern" disabled={data.settings.dictationArtwork!=='original'} value={data.settings.pattern} onChange={e => patch({ pattern: e.target.value as api.Settings["pattern"] })}><option value="wave">Ola</option><option value="stairs">Escalera</option></select></div>
+          <div className="artwork-picker" role="group" aria-label="Modelo de carpeta"><button className="artwork-arrow" aria-label="Modelo anterior" onClick={()=>changeArtwork(-1)}><ChevronLeft size={22}/></button><div className="appearance-preview">{data.settings.dictationArtwork==='realistic'?<RealisticFolder mode="demo" color={artworkColor(data.settings,'realistic')} fallback={<ControlledFolder color="black" customColor={data.settings.color} size="sm" visualState="rest" />}/>:data.settings.dictationArtwork==='metallic'?<IndicatorArtwork kind="folder" original={data.settings.metallicOriginal??true} color={data.settings.metallicColor??'#ffffff'}/>:<ControlledFolder color="black" customColor={data.settings.color} size="sm" visualState="rest" />}</div><button className="artwork-arrow" aria-label="Modelo siguiente" onClick={()=>changeArtwork(1)}><ChevronRight size={22}/></button></div><div className="artwork-model-name" aria-live="polite">{artworkModels[artworkIndex].name}<small>{artworkIndex+1} / {artworkModels.length}</small></div>
+          <h3>Color de carpeta</h3><div className="form-row"><label>Color de carpeta<span>{artwork.colorHint}</span></label><PalettePanel value={{ base: "black", hex: appearanceColor }} onChange={value => patch(artwork.patchColor(data.settings,selectionHex(value)))} /></div>{artwork.restore?.active(data.settings)&&<button className="text-link" onClick={()=>patch(artwork.restore!.patch(data.settings))}>{artwork.restore.label}</button>}<div className="color-values"><span style={{ background: appearanceColor }} /><code>{appearanceColor.toUpperCase()}</code></div>
+            <h3>Carpeta de transcripción</h3><div className="form-row"><label htmlFor="pattern">Movimiento de los papeles</label><select id="pattern" disabled={!artwork.pattern} value={data.settings.pattern} onChange={e => patch({ pattern: e.target.value as api.Settings["pattern"] })}><option value="wave">Ola</option><option value="stairs">Escalera</option></select></div>
             <div className="form-row"><label htmlFor="recorder-scale">Tamaño de carpeta <span>{Math.round(data.settings.recorderScale*100)}%</span></label><div className="size-control"><input id="recorder-scale" type="range" min=".6" max="1.25" step=".05" value={data.settings.recorderScale} aria-valuetext={`${Math.round(data.settings.recorderScale*100)} %`} style={{'--range-progress':`${Math.max(0,Math.min(100,(data.settings.recorderScale-.6)/.65*100))}%`} as React.CSSProperties} onChange={e=>patch({recorderScale:Number(e.target.value)})}/><div className="size-control-limits"><span>Mín. 60 %</span><span>Máx. 125 %</span></div></div></div>
             <div className="form-row"><label htmlFor="placement">Posición de controles</label><select id="placement" value={data.settings.placement} onChange={e => patch({ placement: e.target.value as api.Settings["placement"] })}><option value="right">Derecha</option><option value="left">Izquierda</option><option value="top">Arriba</option><option value="bottom">Abajo</option></select></div>
             <h3>Indicadores</h3><div className="form-row"><label>Capturas y video<span>Cámara de cine · fondo transparente</span></label><div className="appearance-indicators"><IndicatorArtwork kind="camera"/></div></div>

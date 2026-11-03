@@ -6,12 +6,13 @@ const WIDTH = 321, HEIGHT = 270;
 
 // three.js is loaded on demand so the other folder models never pay for it.
 // Without WebGL (old drivers, a GPU reset) it shows `fallback` instead of an empty recorder.
-export default function RealisticFolder({mode='idle',time='00:00',fallback=null}:{mode?:RealisticFolderMode;time?:string;fallback?:ReactNode}) {
+export default function RealisticFolder({mode='idle',time='00:00',color,fallback=null}:{mode?:RealisticFolderMode;time?:string;color?:string;fallback?:ReactNode}) {
   const canvas=useRef<HTMLCanvasElement>(null);
   const scene=useRef<RealisticFolderScene|null>(null);
   const [failed,setFailed]=useState(false);
-  const modeRef=useRef(mode),timeRef=useRef(time);
+  const modeRef=useRef(mode),timeRef=useRef(time),colorRef=useRef(color);
   timeRef.current=time;
+  colorRef.current=color;
   // Device pixels per canvas pixel as displayed (including the recorder's CSS scaling), doubled:
   // an exact 2:1 reduction averages each 2x2 block, smoothing the thin gold edges (supersampling).
   const shownRatio=()=>2*(window.devicePixelRatio||1)*((canvas.current?.getBoundingClientRect().width||WIDTH)/WIDTH);
@@ -29,6 +30,7 @@ export default function RealisticFolder({mode='idle',time='00:00',fallback=null}
       try {
         scene.current=createRealisticFolderScene(canvas.current,WIDTH,HEIGHT,reducedMotion);
         scene.current.setPixelRatio(shownRatio());
+        scene.current.setColor(colorRef.current);
         scene.current.setTime(timeRef.current);
         scene.current.setMode(modeRef.current);
       } catch(error) {
@@ -40,6 +42,7 @@ export default function RealisticFolder({mode='idle',time='00:00',fallback=null}
   },[failed]);
   useEffect(()=>{scene.current?.setPixelRatio(shownRatio());scene.current?.setMode(mode);},[mode]);
   useEffect(()=>{scene.current?.setTime(time);},[time]);
+  useEffect(()=>{scene.current?.setColor(color);},[color]);
   useEffect(()=>{
     const resize=()=>scene.current?.setPixelRatio(shownRatio());
     window.addEventListener('resize',resize);
