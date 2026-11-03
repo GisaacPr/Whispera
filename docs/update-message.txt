@@ -1,5 +1,4 @@
-Capturas y grabaciones mucho más fluidas: el selector, el editor y la barra de herramientas responden al instante.
-Nuevo recuadro de captura: borde fino que se ve en fondos claros y oscuros, puntos redondos y el resto de la pantalla atenuado, sin parpadeos.
-La grabación de video ahora se ve igual que la captura de imagen y usa la placa de video para no cargar la PC.
-Con una herramienta de dibujo elegida el recuadro queda fijo, para escribir y dibujar cerca del borde.
-Ctrl+C copia y cierra la captura, y Ctrl+S, Ctrl+Z y Ctrl+Y funcionan siempre.
+Capturas y grabaciones mucho más fluidas, sin parpadeos.
+Nuevo recuadro: borde fino visible en cualquier fondo y el resto atenuado.
+El video se ve igual que la captura y graba con la placa de video.
+Ctrl+C copia y cierra; el recuadro queda fijo al dibujar.
