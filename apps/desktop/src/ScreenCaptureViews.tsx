@@ -77,6 +77,8 @@ export function ScreenSelection({kind='video',frameColor='#ffffff',snapshot,onPr
   useEffect(()=>{let alive=true;if(kind==='video')void invoke<typeof monitors>('screen_monitors').then(value=>{if(alive&&Array.isArray(value))setMonitors(value);}).catch(e=>{if(alive)setError(String(e));});return()=>{alive=false;};},[kind]);
   const anchor = useRef<Point | undefined>(undefined);
   const tilePress = useRef<number | null>(null);
+  const pendingEnd = useRef<Point | undefined>(undefined), moveFrame = useRef(0);
+  useEffect(()=>()=>cancelAnimationFrame(moveFrame.current),[]);
   const boundedPoint=(x:number,y:number):Point=>({x:Math.max(0,Math.min(innerWidth,x)),y:Math.max(0,Math.min(innerHeight,y))});
   const interruptSelection=()=>{
     if(!anchor.current)return;
@@ -116,7 +118,12 @@ export function ScreenSelection({kind='video',frameColor='#ffffff',snapshot,onPr
     anchor.current = boundedPoint(e.clientX,e.clientY); setOrigin(anchor.current); setEnd(anchor.current); setError('');
     // Frame pacing while dragging, reported on release (see screen_selection_frames).
     const gaps:number[]=[];let last=performance.now();const pace=(now:number)=>{gaps.push(now-last);last=now;if(anchor.current)requestAnimationFrame(pace);else if(gaps.length>4){gaps.sort((x,y)=>x-y);void invoke('screen_selection_frames',{frames:gaps.length,p95:gaps[Math.floor(gaps.length*.95)],max:gaps[gaps.length-1]}).catch(()=>{});}};requestAnimationFrame(pace);
-  }} onPointerMove={e => { if (anchor.current && !busy) setEnd(boundedPoint(e.clientX,e.clientY)); }} onPointerUp={async e => {
+  }} onPointerMove={e => {
+    if (!anchor.current || busy) return;
+    // A fast mouse reports hundreds of moves per second; render (and dim the frozen desktop) once per frame.
+    pendingEnd.current=boundedPoint(e.clientX,e.clientY);
+    if(!moveFrame.current)moveFrame.current=requestAnimationFrame(()=>{moveFrame.current=0;if(anchor.current&&pendingEnd.current)setEnd(pendingEnd.current);});
+  }} onPointerUp={async e => {
     const start = anchor.current; anchor.current = undefined;
     if (!start || busy) return;
     const end=boundedPoint(e.clientX,e.clientY);

@@ -535,22 +535,30 @@ pub fn copy_immediately(
     region: Region,
     original: Vec<u8>,
 ) -> Result<bool, String> {
-    let bytes = crate::screen_capture::rounded_png(&original, source.scale_factor().map_err(|e| e.to_string())?)?;
+    let rounded = crate::screen_capture::rounded_image(&original, source.scale_factor().map_err(|e| e.to_string())?)?;
+    // The clipboard is what the user waits for: hand it the pixels directly (no PNG
+    // round trip), release the frozen desktop, and save the history copy afterwards.
     let copy = (|| -> Result<(), String> {
-        let root = app
-            .path()
-            .app_cache_dir()
-            .map_err(|e| e.to_string())?
-            .join("screenshots");
-        fs::create_dir_all(&root).map_err(|e| e.to_string())?;
-        let path = root.join(format!("{}.png", uuid::Uuid::new_v4()));
-        fs::write(&path, &bytes).map_err(|e| e.to_string())?;
-        crate::capture_history::remember(&app.state::<crate::storage::Store>(), "image", &path)?;
-        let image = tauri::image::Image::from_bytes(&bytes).map_err(|e| e.to_string())?;
-        app.clipboard()
-            .write_image(&image)
-            .map_err(|e| e.to_string())
+        let (width, height) = rounded.dimensions();
+        let image = tauri::image::Image::new(rounded.as_raw(), width, height);
+        app.clipboard().write_image(&image).map_err(|e| e.to_string())
     })();
+    if copy.is_ok() {
+        let app = app.clone();
+        std::thread::spawn(move || {
+            let saved = (|| -> Result<(), String> {
+                let bytes = crate::screen_capture::rgba_png(&rounded)?;
+                let root = app.path().app_cache_dir().map_err(|e| e.to_string())?.join("screenshots");
+                fs::create_dir_all(&root).map_err(|e| e.to_string())?;
+                let path = root.join(format!("{}.png", uuid::Uuid::new_v4()));
+                fs::write(&path, &bytes).map_err(|e| e.to_string())?;
+                crate::capture_history::remember(&app.state::<crate::storage::Store>(), "image", &path)
+            })();
+            if let Err(error) = saved {
+                let _ = app.state::<crate::storage::Store>().event(&format!("Captura copiada, pero no se guardo en el historial: {error}"));
+            }
+        });
+    }
     if let Err(error) = copy {
         open_with_image(app, source, rect, region, "image", Some(original))?;
         *session::editor(app,source.label())

@@ -520,7 +520,10 @@ fn select_locked(app: &tauri::AppHandle, screen: &Screen, kind: &str) -> Result<
             let region = Region { x: monitor.position().x, y: monitor.position().y, width: monitor.size().width, height: monitor.size().height, ..Default::default() };
             #[cfg(target_os = "macos")]
             let region = crate::screen_capture::macos::monitor_region(monitor)?;
-            snapshots.insert(format!("{}select-{index}",if screen.secondary {"image-"}else{"screen-"}), std::sync::Arc::new(crate::screen_capture::freeze(region)?));
+            let frame=std::sync::Arc::new(crate::screen_capture::freeze(region)?);
+            // Encode the preview while the overlay windows open, not when they ask for it.
+            let warm=frame.clone();std::thread::spawn(move||{let _=warm.preview();});
+            snapshots.insert(format!("{}select-{index}",if screen.secondary {"image-"}else{"screen-"}), frame);
         }
     }
     hide_selectors(app, screen);
@@ -648,6 +651,11 @@ pub fn warm_selectors(app: &tauri::AppHandle) -> Result<(), String> {
         selector_window(app, &format!("screen-freeze-{index}"))?;
         selector_window(app, &format!("image-freeze-{index}"))?;
     }
+    // The editor ink, tools and HUD windows too: building them when a quick first
+    // selection is released was the slowest part of the first capture.
+    crate::screen_editor::warm(app,"screen-select-0");
+    // Probe the hardware video encoder now so the first recording does not wait for it.
+    if let Ok(binary)=ffmpeg(app) {std::thread::spawn(move||{let _=crate::replay::hardware_encoder(&binary);});}
     Ok(())
 }
 #[tauri::command]
@@ -1755,19 +1763,19 @@ fn record(
             "-an",
             "-vf",
             &format!("pad=ceil(iw/2)*2:ceil(ih/2)*2,scale={}:{}:force_original_aspect_ratio=decrease:force_divisible_by=2,pad={}:{}:(ow-iw)/2:(oh-ih)/2,setsar=1",output_size.0,output_size.1,output_size.0,output_size.1),
-            "-c:v",
-            "libx264",
-            "-preset",
-            "veryfast",
-            "-tune",
-            "zerolatency",
-            "-crf",
-            "18",
-            "-pix_fmt",
-            "yuv420p",
-            "-flush_packets",
-            "1",
         ]);
+    // Encode on the graphics card when one is available: libx264 at 30 fps took enough
+    // CPU to make the whole desktop feel slow while recording. H.264 hardware encoders
+    // stop at 4096 px, so wider captures keep the software encoder.
+    #[cfg(windows)]
+    {
+        let encoder=if output_size.0<=4096&&output_size.1<=4096 {crate::replay::hardware_encoder(&binary).ok()} else {None};
+        match encoder {
+            Some(name) => capture_command.args(crate::replay::encoder_args(&name)),
+            None => capture_command.args(["-c:v","libx264","-preset","veryfast","-tune","zerolatency","-crf","18"]),
+        };
+        capture_command.args(["-pix_fmt","yuv420p","-flush_packets","1"]);
+    }
     #[cfg(target_os = "macos")]
     capture_command.args(["-hide_banner", "-loglevel", "error", "-y", "-f", "rawvideo",
         "-pixel_format", "bgra", "-video_size", &format!("{}x{}", region.width, region.height),

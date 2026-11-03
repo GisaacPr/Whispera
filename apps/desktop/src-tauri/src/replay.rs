@@ -145,8 +145,9 @@ pub(crate) fn hardware_encoder(binary:&Path)->Result<String,String>{
     let candidates=["h264_nvenc","h264_amf","h264_qsv"];
     #[cfg(target_os="macos")]
     let candidates=["h264_videotoolbox"];
+    // NVENC rejects frames under ~145 px, so a smaller probe always missed NVIDIA cards.
     for name in candidates{
-        let mut cmd=command(binary);cmd.args(["-hide_banner","-loglevel","error","-f","lavfi","-i","color=size=128x128:rate=30","-t","0.1","-an"]).args(encoder_args(name)).args(["-f","null","-"]).stdout(Stdio::null()).stderr(Stdio::null());
+        let mut cmd=command(binary);cmd.args(["-hide_banner","-loglevel","error","-f","lavfi","-i","color=size=256x256:rate=30","-t","0.1","-an"]).args(encoder_args(name)).args(["-f","null","-"]).stdout(Stdio::null()).stderr(Stdio::null());
         if run_command(&mut cmd,Duration::from_secs(4)).is_ok(){*cached=Some(name.into());return Ok(name.into());}
     }
     Err("No hay codificador de video por hardware compatible. La grabación hacia atrás queda detenida para evitar una carga continua en la CPU".into())

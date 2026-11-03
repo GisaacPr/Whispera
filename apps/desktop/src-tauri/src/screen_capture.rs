@@ -157,12 +157,15 @@ pub(crate) fn rgba_png(image: &image::RgbaImage) -> Result<Vec<u8>, String> {
 pub struct FrozenFrame {
     region: Region,
     bgra: Vec<u8>,
+    /// The selector and the editor show the same frozen monitor: encode it once.
+    preview: std::sync::OnceLock<Vec<u8>>,
 }
 impl FrozenFrame {
     /// Lossless preview for the selector and the editor. A desktop is mostly flat UI and text,
     /// so a fast PNG is ~40x smaller than the raw BMP (3440x1440: 20 MB -> ~0.5 MB). Moving
     /// 20 MB into each webview cost more than encoding. Falls back to BMP if encoding fails.
-    pub fn preview(&self) -> Vec<u8> {
+    pub fn preview(&self) -> Vec<u8> { self.preview.get_or_init(|| self.encode_preview()).clone() }
+    fn encode_preview(&self) -> Vec<u8> {
         let mut rgb = Vec::with_capacity(self.bgra.len() / 4 * 3);
         for pixel in self.bgra.chunks_exact(4) {
             rgb.extend_from_slice(&[pixel[2], pixel[1], pixel[0]]);
@@ -276,11 +279,11 @@ pub fn freeze(region: Region) -> Result<FrozenFrame, String> {
             return Err("No se pudieron leer todos los pixeles".into());
         }
     }
-    Ok(FrozenFrame { region, bgra: bytes })
+    Ok(FrozenFrame { region, bgra: bytes, preview: Default::default() })
 }
 #[cfg(target_os = "macos")]
 pub fn freeze(region: Region) -> Result<FrozenFrame, String> {
-    Ok(FrozenFrame { region, bgra: macos::snapshot(region, false)? })
+    Ok(FrozenFrame { region, bgra: macos::snapshot(region, false)?, preview: Default::default() })
 }
 #[cfg(target_os = "macos")]
 pub fn png_with_ink(region: Region, ink: bool) -> Result<Vec<u8>, String> {
@@ -323,7 +326,7 @@ mod tests {
     fn raw_frozen_frame_preserves_pixel_order_and_crop_exactly() {
         let region = Region { x: -3, y: -2, width: 3, height: 2, ..Default::default() };
         let bgra = vec![1,2,3,0, 4,5,6,0, 7,8,9,0, 10,11,12,0, 13,14,15,0, 16,17,18,0];
-        let frame = FrozenFrame { region, bgra };
+        let frame = FrozenFrame { region, bgra, preview: Default::default() };
         let bmp = frame.preview_bmp();
         assert_eq!(&bmp[..2], b"BM");
         assert_eq!(bmp.len(), 54 + 24);
@@ -341,7 +344,7 @@ mod tests {
         // GDI leaves alpha at 0; the preview must still be fully opaque and pixel exact.
         let region = Region { x: -3, y: -2, width: 3, height: 2, ..Default::default() };
         let bgra = vec![1,2,3,0, 4,5,6,0, 7,8,9,0, 10,11,12,0, 13,14,15,0, 16,17,18,0];
-        let preview = FrozenFrame { region, bgra }.preview();
+        let preview = FrozenFrame { region, bgra, preview: Default::default() }.preview();
         assert_eq!(&preview[..8], b"\x89PNG\r\n\x1a\n");
         let decoded = image::load_from_memory(&preview).unwrap().into_rgba8();
         assert_eq!((decoded.width(), decoded.height()), (3, 2));
