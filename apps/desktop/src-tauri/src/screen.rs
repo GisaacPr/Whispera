@@ -782,14 +782,18 @@ pub fn screen_selection_kind(app:tauri::AppHandle,window:tauri::WebviewWindow) -
     kind
 }
 #[tauri::command]
-pub fn screen_selection_image(app:tauri::AppHandle, window: tauri::WebviewWindow) -> Result<tauri::ipc::Response, String> {
-    let screen=session::screen(&app,window.label());
-    let source=session::frozen_source(window.label()).unwrap_or_else(||window.label().into());
-    let frame = screen.snapshots.lock().map_err(|_| "Captura ocupada")?.get(&source).cloned();
-    selection_stage(&screen, "imagen pedida");
-    let bytes = frame.map(|frame| frame.preview()).unwrap_or_default();
-    selection_stage(&screen, "imagen enviada");
-    Ok(tauri::ipc::Response::new(bytes))
+// Async: the PNG encode runs on a worker thread, never on the main thread that drives the windows.
+pub async fn screen_selection_image(app:tauri::AppHandle, window: tauri::WebviewWindow) -> Result<tauri::ipc::Response, String> {
+    let label=window.label().to_owned();
+    tauri::async_runtime::spawn_blocking(move || -> Result<tauri::ipc::Response, String> {
+        let screen=session::screen(&app,&label);
+        let source=session::frozen_source(&label).unwrap_or_else(||label.clone());
+        let frame = screen.snapshots.lock().map_err(|_| "Captura ocupada")?.get(&source).cloned();
+        selection_stage(&screen, "imagen pedida");
+        let bytes = frame.map(|frame| frame.preview()).unwrap_or_default();
+        selection_stage(&screen, "imagen enviada");
+        Ok(tauri::ipc::Response::new(bytes))
+    }).await.map_err(|e| e.to_string())?
 }
 /// Frame pacing of an area drag, measured in the selector: the drag runs in a transparent
 /// full-monitor window, so its smoothness can only be observed on the real desktop.
@@ -798,11 +802,13 @@ pub fn screen_selection_frames(app: tauri::AppHandle, frames: u32, p95: f64, max
     let _ = app.state::<Store>().event(&format!("Seleccion de area: {frames} cuadros; p95 {p95:.0} ms; peor {max:.0} ms"));
 }
 #[tauri::command]
-pub fn screen_editor_background(app:tauri::AppHandle,id:String)->Result<tauri::ipc::Response,String> {
-    let ctx=crate::screen_editor::context_for(&app,&id).filter(|c|c.id==id&&c.kind=="image").ok_or("Captura no disponible")?;
-    let screen=session::screen(&app,&id);
-    let frame=screen.snapshots.lock().map_err(|_|"Captura ocupada")?.get(&ctx.source_label).cloned().ok_or("Pantalla congelada no disponible")?;
-    Ok(tauri::ipc::Response::new(frame.preview()))
+pub async fn screen_editor_background(app:tauri::AppHandle,id:String)->Result<tauri::ipc::Response,String> {
+    tauri::async_runtime::spawn_blocking(move || -> Result<tauri::ipc::Response, String> {
+        let ctx=crate::screen_editor::context_for(&app,&id).filter(|c|c.id==id&&c.kind=="image").ok_or("Captura no disponible")?;
+        let screen=session::screen(&app,&id);
+        let frame=screen.snapshots.lock().map_err(|_|"Captura ocupada")?.get(&ctx.source_label).cloned().ok_or("Pantalla congelada no disponible")?;
+        Ok(tauri::ipc::Response::new(frame.preview()))
+    }).await.map_err(|e| e.to_string())?
 }
 fn frozen_generation(screen:&Screen)->Option<u64> {
     let kind=screen.kind.lock().ok()?.clone();
