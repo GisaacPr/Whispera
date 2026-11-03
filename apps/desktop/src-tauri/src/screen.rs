@@ -611,7 +611,6 @@ fn selector_window(app: &tauri::AppHandle, label: &str) -> Result<tauri::Webview
                 .map_err(|e| e.to_string())?,
     })
 }
-/// Prepare hidden selectors once, outside the first shortcut's critical path.
 /// Records how long after the shortcut a selection milestone happened (ms).
 fn selection_stage(screen: &Screen, name: &str) {
     let Some(started) = screen.selection_started.lock().ok().and_then(|s| *s) else { return; };
@@ -619,6 +618,7 @@ fn selection_stage(screen: &Screen, name: &str) {
         stages.push(format!("{name} {}", started.elapsed().as_millis()));
     }
 }
+/// Prepare hidden selectors once, outside the first shortcut's critical path.
 pub fn warm_selectors(app: &tauri::AppHandle) -> Result<(), String> {
     let screen = app.state::<Screen>();
     let Ok(_gate) = screen.gate.try_lock() else { return Ok(()); };
