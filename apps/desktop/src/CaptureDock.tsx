@@ -6,6 +6,9 @@ type View={zoom:number;compact:boolean;horizontal?:boolean};
 type Gesture={x:number;y:number;pending?:{x:number;y:number};ready:Promise<unknown>;running?:Promise<void>};
 export function useCaptureDock(id:string,element:RefObject<HTMLElement|null>,onError:(error:string)=>void,beforeDrag?:()=>Promise<unknown>) {
   const [view,setView]=useState<View>({zoom:1,compact:false});
+  // Hidden until the saved zoom/orientation is applied and the native window took its final size;
+  // revealing earlier showed the dock growing and shrinking while it settled.
+  const [settled,setSettled]=useState(false);
   const gesture=useRef<Gesture|undefined>(undefined);const live=useRef(true);
   const queue=useRef<Promise<unknown>>(Promise.resolve());
   const request=(action:string,args:Record<string,unknown>={})=>{
@@ -13,7 +16,20 @@ export function useCaptureDock(id:string,element:RefObject<HTMLElement|null>,onE
     queue.current=next;return next;
   };
   const change=async(values:Partial<View>)=>{try{const value=await request('configure',values);if(live.current&&value)setView(value);}catch(e){onError(String(e));}};
-  useEffect(()=>{live.current=true;void request('get').then(value=>{if(live.current&&value)setView(value);}).catch(e=>onError(String(e)));return()=>{live.current=false;};},[id]);
+  useEffect(()=>{
+    live.current=true;setSettled(false);
+    const reveal=()=>{if(live.current)setSettled(true);};
+    const fallback=setTimeout(reveal,400);
+    const frame=()=>new Promise(resolve=>requestAnimationFrame(resolve));
+    void request('get').then(async value=>{
+      if(!live.current)return;
+      if(value)setView(value);
+      await frame();await frame();
+      const target=element.current,zoom=value?.zoom??1;
+      if(live.current&&target)await request('size',{width:target.offsetWidth+8/zoom,height:target.offsetHeight+8/zoom});
+    }).catch(e=>onError(String(e))).finally(()=>{clearTimeout(fallback);reveal();});
+    return()=>{live.current=false;clearTimeout(fallback);};
+  },[id]);
   useEffect(()=>{
     const target=element.current;if(!target)return;
     let timer:ReturnType<typeof setTimeout>|undefined,previous='',stopped=false;
@@ -43,5 +59,5 @@ export function useCaptureDock(id:string,element:RefObject<HTMLElement|null>,onE
   const sizing=(label:string)=><span className="capture-dock-sizing" aria-label={`Tamaño de ${label}`}><button aria-label={`Reducir ${label}`} title={`Reducir (${Math.round(view.zoom*100)} %)`} disabled={view.zoom<=.75} onClick={()=>void change({zoom:Math.max(.75,Math.round((view.zoom-.1)*100)/100)})}><Minus size={13}/></button><button aria-label={`Ampliar ${label}`} title={`Ampliar (${Math.round(view.zoom*100)} %)`} disabled={view.zoom>=1.5} onClick={()=>void change({zoom:Math.min(1.5,Math.round((view.zoom+.1)*100)/100)})}><Plus size={13}/></button></span>;
   const rotate=()=> <button aria-label={view.horizontal?'Orientar herramientas verticalmente':'Orientar herramientas horizontalmente'} title={view.horizontal?'Barra vertical':'Barra horizontal'} onClick={()=>void (async()=>{await beforeDrag?.();await change({horizontal:!view.horizontal});})()}><RotateCw size={15}/></button>;
   const reset=()=> <button aria-label="Restablecer posición de herramientas" title="Restablecer posición" onClick={()=>void (async()=>{await beforeDrag?.();await request('reset');})().catch(e=>onError(String(e)))}><LocateFixed size={15}/></button>;
-  return {...view,change,grip,sizing,rotate,reset};
+  return {...view,settled,change,grip,sizing,rotate,reset};
 }

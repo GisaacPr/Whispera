@@ -77,6 +77,9 @@ function Ink({ context }: { context: Context }) {
   const [text, setText] = useState<{ point: Point; value: string }>();
   const actions = useRef<(a: Action) => void>(() => {}), live = useRef(true), working = useRef(false);
   const shown = useRef(false), exporting = useRef(false);
+  // A copy/save asked for while the frozen image still loads runs once it is ready, instead of
+  // being dropped (the first Ctrl+C after a capture often arrived before the image did).
+  const pendingExport = useRef<'copy' | 'save' | undefined>(undefined);
   const paintBackground=(ctx:CanvasRenderingContext2D)=>{
     if(!background.current)return;
     if(fullBackground.current&&context.rect) {
@@ -127,7 +130,8 @@ function Ink({ context }: { context: Context }) {
     finally{draft.current=null;working.current=false;if(live.current){setBusy(false);changed();}}
   };
   const exportImage = async (action: 'copy' | 'save') => {
-    if (context.kind !== 'image' || working.current || exporting.current || !background.current) return;
+    if (context.kind !== 'image' || exporting.current) return;
+    if (working.current || !background.current) { pendingExport.current = action; return; }
     exporting.current = true; working.current = true; setBusy(true); setError(''); selected.current = undefined; draw();
     try {
       // The native editor already owns the exact frozen crop. Without marks,
@@ -149,7 +153,7 @@ function Ink({ context }: { context: Context }) {
     finally { exporting.current = false; working.current = false; if (live.current) setBusy(false); }
   };
   actions.current = a => {
-    if (working.current && !['tool','color','width','close','escape'].includes(a.action)) return;
+    if (working.current && !['tool','color','width','close','escape','copy','save'].includes(a.action)) return;
     setError('');
     if (a.action === 'tool') { selected.current = undefined; setTool(a.value as Tool); }
     else if (a.action === 'color' && /^#[0-9a-f]{6}$/i.test(a.value ?? '')) setOptions(o => ({ ...o, color: a.value! }));
@@ -162,10 +166,16 @@ function Ink({ context }: { context: Context }) {
     else if (a.action === 'print' && context.kind === 'image') { selected.current = undefined; draw(); void invoke('screen_editor_print',{ id:context.id }).catch(e => setError(String(e))); }
     else if (a.action === 'reselect' && context.kind === 'image') void invoke('screen_select_image').catch(e => setError(String(e)));
     else if (a.action === 'close' || a.action === 'escape') {
+      pendingExport.current = undefined;
       if (context.kind === 'image') void invoke('screen_cancel_selection').catch(e => setError(String(e)));
       else void invoke('screen_escape').catch(e => setError(String(e)));
     }
   };
+  useEffect(() => {
+    if (busy || !pendingExport.current || !background.current) return;
+    const action = pendingExport.current; pendingExport.current = undefined;
+    void exportImage(action);
+  }, [busy]);
   useEffect(() => {
     live.current = true; let unlisten: UnlistenFn | undefined;
     void (async () => {
@@ -289,7 +299,7 @@ function VideoHud({context}:{context:Context}) {
   const label=status.phase==='starting'?'Iniciando…':paused?'En pausa':status.phase==='pausing'?'Pausando…':status.phase==='resuming'?'Reanudando…':status.phase==='saving'?'Preparando…':'Grabando';
   const time=status.phase==='starting'?'Iniciando…':`${Math.floor(status.seconds/60).toString().padStart(2,'0')}:${Math.floor(status.seconds%60).toString().padStart(2,'0')}`;
   return <div className="capture-hud capture-line-hud" data-compact="true" data-paused={paused} aria-label="Controles de video">
-    <div className="capture-dock-origin"><div ref={dockElement} className="capture-hud-controls" style={{zoom:dock.zoom,'--dock-zoom':dock.zoom} as CSSProperties}>{dock.grip('controles de video')}<span className="capture-hud-time" title={label}><i/><output aria-label="Tiempo grabado">{time}</output></span>{status.notice&&<span role="status" className="capture-hud-esc"><kbd>Esc</kbd>{status.notice.replace(/^Apretá Esc /,"")}</span>}{!dock.compact&&<><IndicatorArtwork kind="camera" compact active={status.phase==='recording'}/><button disabled={busy||!['recording','paused'].includes(status.phase)} aria-label="Capturar imagen del video" title="Capturar y copiar el área grabada" onClick={()=>void run('screen_video_snapshot')}><Camera size={16}/></button><button disabled={busy||!['recording','paused'].includes(status.phase)} aria-label={paused?'Reanudar video':'Pausar video'} title={paused?'Reanudar':'Pausar'} onClick={()=>void run('screen_pause')}><span className="t-icon-swap" data-state={paused?'b':'a'}><span className="t-icon" data-icon="a"><Pause size={16}/></span><span className="t-icon" data-icon="b"><Play size={16}/></span></span></button></>}<button className="capture-stop" disabled={busy||!['recording','paused'].includes(status.phase)} aria-label="Detener video" title="Detener y guardar video" onClick={()=>void run('screen_stop')}><Square size={12} fill="currentColor"/></button>{!dock.compact&&<><button disabled={busy||['saving','cancelling'].includes(status.phase)} aria-label="Cancelar video" title="Cancelar y descartar el video" onClick={()=>void run('screen_cancel')}><X size={16}/></button></>}{dock.sizing('controles de video')}<button aria-label={dock.compact?'Expandir controles de video':'Contraer controles de video'} title={dock.compact?'Expandir controles':'Contraer controles'} onClick={()=>void dock.change({compact:!dock.compact})}>{dock.compact?<ChevronRight size={15}/>:<ChevronLeft size={15}/>}</button></div></div>
+    <div className="capture-dock-origin" data-settled={dock.settled}><div ref={dockElement} className="capture-hud-controls" style={{zoom:dock.zoom,'--dock-zoom':dock.zoom} as CSSProperties}>{dock.grip('controles de video')}<span className="capture-hud-time" title={label}><i/><output aria-label="Tiempo grabado">{time}</output></span>{status.notice&&<span role="status" className="capture-hud-esc"><kbd>Esc</kbd>{status.notice.replace(/^Apretá Esc /,"")}</span>}{!dock.compact&&<><IndicatorArtwork kind="camera" compact active={status.phase==='recording'}/><button disabled={busy||!['recording','paused'].includes(status.phase)} aria-label="Capturar imagen del video" title="Capturar y copiar el área grabada" onClick={()=>void run('screen_video_snapshot')}><Camera size={16}/></button><button disabled={busy||!['recording','paused'].includes(status.phase)} aria-label={paused?'Reanudar video':'Pausar video'} title={paused?'Reanudar':'Pausar'} onClick={()=>void run('screen_pause')}><span className="t-icon-swap" data-state={paused?'b':'a'}><span className="t-icon" data-icon="a"><Pause size={16}/></span><span className="t-icon" data-icon="b"><Play size={16}/></span></span></button></>}<button className="capture-stop" disabled={busy||!['recording','paused'].includes(status.phase)} aria-label="Detener video" title="Detener y guardar video" onClick={()=>void run('screen_stop')}><Square size={12} fill="currentColor"/></button>{!dock.compact&&<><button disabled={busy||['saving','cancelling'].includes(status.phase)} aria-label="Cancelar video" title="Cancelar y descartar el video" onClick={()=>void run('screen_cancel')}><X size={16}/></button></>}{dock.sizing('controles de video')}<button aria-label={dock.compact?'Expandir controles de video':'Contraer controles de video'} title={dock.compact?'Expandir controles':'Contraer controles'} onClick={()=>void dock.change({compact:!dock.compact})}>{dock.compact?<ChevronRight size={15}/>:<ChevronLeft size={15}/>}</button></div></div>
     {(error||status.error)&&<div role="alert" className="capture-hud-error">{error||status.error}</div>}
   </div>;
 }
@@ -316,7 +326,7 @@ function ImageActions({context}:{context:Context}) {
   const {feedback,send,notice,setError}=useEditorControls(context);
   const dockElement=useRef<HTMLDivElement>(null);
   const dock=useCaptureDock(context.id,dockElement,setError);
-  return <div className="capture-dock-origin"><div ref={dockElement} style={{zoom:dock.zoom,'--dock-zoom':dock.zoom} as CSSProperties} className="capture-image-actions" aria-label="Acciones de captura">{dock.grip('acciones de captura')}<IndicatorArtwork kind="camera" compact/>
+  return <div className="capture-dock-origin" data-settled={dock.settled}><div ref={dockElement} style={{zoom:dock.zoom,'--dock-zoom':dock.zoom} as CSSProperties} className="capture-image-actions" aria-label="Acciones de captura">{dock.grip('acciones de captura')}<IndicatorArtwork kind="camera" compact/>
     <button className="capture-copy" disabled={feedback.busy} title={`Copiar (${commandKey}+C)`} onClick={()=>void send({action:'copy'})}><Copy size={17}/>Copiar</button>
     {!dock.compact&&<><button disabled={feedback.busy} title={`Guardar PNG (${commandKey}+S)`} aria-label="Guardar imagen" onClick={()=>void send({action:'save'})}><Save size={18}/></button>
     <button disabled={feedback.busy} title="Imprimir" aria-label="Imprimir imagen" onClick={()=>void send({action:'print'})}><Printer size={18}/></button>
@@ -369,7 +379,7 @@ function Toolbar({ context }: { context:Context }) {
   const toggleCompact=async()=>{
     try { clearTimeout(timer.current);++epoch.current;setPanel(undefined);setClosing(false);if(!compact&&context.kind==='video')await send({action:'tool',value:'pointer'});await dock.change({compact:!compact});setLayout({railX:4,railY:4,menuX:58,menuY:4}); }catch(e){setError(String(e));}
   };
-  return <><div className="capture-dock-origin" style={{left:layout.railX,top:layout.railY}}><div ref={dockElement} className="capture-toolbar capture-line" style={{zoom:dock.zoom,'--dock-zoom':dock.zoom} as CSSProperties} data-horizontal={!!dock.horizontal} data-session={context.id} data-compact={compact} aria-label="Herramientas de captura">
+  return <><div className="capture-dock-origin" data-settled={dock.settled} style={{left:layout.railX,top:layout.railY}}><div ref={dockElement} className="capture-toolbar capture-line" style={{zoom:dock.zoom,'--dock-zoom':dock.zoom} as CSSProperties} data-horizontal={!!dock.horizontal} data-session={context.id} data-compact={compact} aria-label="Herramientas de captura">
     {dock.grip('herramientas')}
     {compact ? <button className="capture-pointer" aria-label="Usar mouse normal" title="Volver al mouse (V)" aria-pressed={feedback.tool==='pointer'} onClick={()=>void send({action:'tool',value:'pointer'})}><MousePointer2 size={18}/></button> : <>
       <div className="capture-tool-list" role="toolbar" aria-label="Dibujo" aria-orientation={dock.horizontal?'horizontal':'vertical'}>{tools.map(([name,Icon,label,key])=>name==='rectangle'?<button key={name} title="Formas" aria-label="Formas" aria-expanded={panel==='shapes'&&!closing} aria-pressed={isShape(feedback.tool)} disabled={feedback.busy} onClick={e=>void openPanel('shapes',e.currentTarget)}><ShapeIcon size={17}/></button>:<button key={name} title={`${label} (${key})`} aria-label={label} aria-pressed={feedback.tool===name} disabled={feedback.busy} onClick={()=>void send({action:'tool',value:name})}><Icon size={17} strokeWidth={1.7}/></button>)}</div>

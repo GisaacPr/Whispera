@@ -37,6 +37,10 @@
 .capture-line-hud[data-paused=true] .capture-hud-time i { background:#e8bd55; }
 .capture-line-hud button.capture-stop { background:#ededf0; color:#222; }
 .capture-dock-origin {position:absolute;left:4px;top:4px;width:max-content;}
+/* Revealed once the native window has its final size (see useCaptureDock). */
+.capture-dock-origin { transition:opacity 120ms ease-out; }
+.capture-dock-origin[data-settled="false"] { opacity:0; pointer-events:none; }
+@media(prefers-reduced-motion:reduce) { .capture-dock-origin { transition:none; } }
 .capture-dock-origin>.capture-toolbar.capture-line {position:relative;left:auto;top:auto;}
 .capture-dock-origin>.capture-hud-controls,.capture-dock-origin>.capture-image-actions {position:relative;inset:auto;width:max-content;height:auto;min-height:44px;max-width:none;flex-wrap:nowrap;}
 .capture-toolbar.capture-line[data-horizontal="true"] {flex-direction:row;width:max-content;}

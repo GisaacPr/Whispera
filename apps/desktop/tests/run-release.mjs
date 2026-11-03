@@ -14,6 +14,7 @@ suites.push('window-lifecycle');
 suites.push('performance');
 suites.push('copy-export');
 suites.push('realistic-folder');
+suites.push('copy-early');
 suites.push('app-themes');
 suites.push('palette-stability');
 suites.push('capture-docks');
