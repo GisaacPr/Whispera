@@ -215,10 +215,13 @@ pub(crate) fn command(binary: &Path) -> Command {
 pub(crate) fn place_window(window: &tauri::WebviewWindow, region: Region) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     { crate::screen_capture::macos::place(window, region, true) }
+    // One SetWindowPos moves and resizes together: separate set_position and set_size
+    // calls made the WebView lay out twice and showed the window jumping in between.
     #[cfg(windows)]
-    {
-        window.set_position(tauri::PhysicalPosition::new(region.x, region.y)).map_err(|e| e.to_string())?;
-        window.set_size(tauri::PhysicalSize::new(region.width, region.height)).map_err(|e| e.to_string())
+    unsafe {
+        use windows::Win32::UI::WindowsAndMessaging::{SetWindowPos, SWP_NOACTIVATE, SWP_NOZORDER, SWP_NOOWNERZORDER};
+        let hwnd=windows::Win32::Foundation::HWND(window.hwnd().map_err(|e| e.to_string())?.0);
+        SetWindowPos(hwnd, None, region.x, region.y, region.width as i32, region.height as i32, SWP_NOACTIVATE|SWP_NOZORDER|SWP_NOOWNERZORDER).map_err(|e| e.to_string())
     }
 }
 fn hide_selectors(app: &tauri::AppHandle, screen: &Screen) {

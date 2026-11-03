@@ -854,8 +854,7 @@ pub fn screen_tools_panel(app: tauri::AppHandle, window: tauri::WebviewWindow, i
         fit_start(if below+height as i32<=monitor.y+monitor.height as i32-gap {below}else{rail.y-height as i32-gap},monitor.y,monitor.height,height,gap)
     } else {fit_start(rail.y+(anchor.clamp(0.,442.)*ctx.scale).round() as i32-height as i32/2,monitor.y,monitor.height,height,gap)};
     let x=rail.x.min(menu_x);let y=rail.y.min(menu_y);
-    window.set_size(tauri::PhysicalSize::new((rail.x+rail.width as i32).max(menu_x+width as i32)-x,(rail.y+rail.height as i32).max(menu_y+height as i32)-y)).map_err(|e|e.to_string())?;
-    window.set_position(tauri::PhysicalPosition::new(x,y)).map_err(|e|e.to_string())?;
+    screen::place_window(&window,Region{x,y,width:((rail.x+rail.width as i32).max(menu_x+width as i32)-x) as u32,height:((rail.y+rail.height as i32).max(menu_y+height as i32)-y) as u32,..Default::default()})?;
     Ok(serde_json::json!({"railX":(rail.x-x) as f64/ctx.scale+4.,"railY":(rail.y-y) as f64/ctx.scale+4.,"menuX":(menu_x-x) as f64/ctx.scale+4.,"menuY":(menu_y-y) as f64/ctx.scale+4.}))
 }
 

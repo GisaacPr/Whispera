@@ -1,5 +1,5 @@
 :root {
-  --dropdown-open-dur:250ms; --dropdown-close-dur:150ms;
+  --dropdown-open-dur:140ms; --dropdown-close-dur:100ms;
   --dropdown-pre-scale:.97; --dropdown-closing-scale:.99;
   --dropdown-ease:cubic-bezier(.22,1,.36,1);
   --icon-swap-dur:250ms; --icon-swap-blur:2px;
