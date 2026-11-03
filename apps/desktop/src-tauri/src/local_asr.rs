@@ -378,6 +378,11 @@ fn pcm_16k(bytes: &[u8]) -> Result<Vec<f32>, String> {
 
 // Windowed-sinc (Blackman) band-limited resampling, cut just below the lower
 // Nyquist. A box average aliased consonants and measurably cost words.
+//
+// Output i is centred at i * rate / 16000, so its kernel depends only on the fractional
+// part of that position: a few phases (one at 48 kHz, 160 at 44.1 kHz). Their normalised
+// weights are computed once instead of evaluating sin/cos for every tap of every sample,
+// which made a 40 s dictation spend ~3 s here before the model even started.
 fn resample(input: &[f32], rate: u32) -> Vec<f32> {
     if rate == 16_000 || rate == 0 || input.is_empty() {
         return input.to_vec();
@@ -386,22 +391,39 @@ fn resample(input: &[f32], rate: u32) -> Vec<f32> {
     let cutoff = ratio.min(1.0) * 0.95;
     let width = 16.0 / cutoff;
     let count = (input.len() as f64 * ratio).floor() as usize;
+    let weight = |t: f64| {
+        let x = std::f64::consts::PI * cutoff * t;
+        let sinc = if x.abs() < 1e-9 { 1.0 } else { x.sin() / x };
+        let u = std::f64::consts::PI * t / width;
+        sinc * (0.42 + 0.5 * u.cos() + 0.08 * (2.0 * u).cos())
+    };
+    let mut phases: std::collections::HashMap<u64, (i64, Vec<f64>)> = std::collections::HashMap::new();
     (0..count)
         .map(|i| {
-            let center = i as f64 / ratio;
-            let first = (center - width).ceil().max(0.0) as usize;
-            let last = ((center + width).floor() as usize).min(input.len() - 1);
-            let (mut sum, mut weights) = (0.0f64, 0.0f64);
-            for (k, sample) in input.iter().enumerate().take(last + 1).skip(first) {
-                let t = k as f64 - center;
-                let x = std::f64::consts::PI * cutoff * t;
-                let sinc = if x.abs() < 1e-9 { 1.0 } else { x.sin() / x };
-                let u = std::f64::consts::PI * t / width;
-                let window = 0.42 + 0.5 * u.cos() + 0.08 * (2.0 * u).cos();
-                sum += f64::from(*sample) * sinc * window;
-                weights += sinc * window;
+            let position = i as u64 * u64::from(rate);
+            let (base, phase) = ((position / 16_000) as i64, position % 16_000);
+            let fraction = phase as f64 / 16_000.0;
+            let low = (fraction - width).ceil() as i64;
+            let high = (fraction + width).floor() as i64;
+            let (first, last) = (base + low, base + high);
+            if first < 0 || last > input.len() as i64 - 1 {
+                // Edges: the window is cut, so normalise over the taps that exist.
+                let center = base as f64 + fraction;
+                let (mut sum, mut weights) = (0.0f64, 0.0f64);
+                for k in first.max(0)..=last.min(input.len() as i64 - 1) {
+                    let w = weight(k as f64 - center);
+                    sum += f64::from(input[k as usize]) * w;
+                    weights += w;
+                }
+                return (sum / weights) as f32;
             }
-            (sum / weights) as f32
+            let (_, taps) = phases.entry(phase).or_insert_with(|| {
+                let raw: Vec<f64> = (low..=high).map(|offset| weight(offset as f64 - fraction)).collect();
+                let total: f64 = raw.iter().sum();
+                (low, raw.into_iter().map(|w| w / total).collect())
+            });
+            let window = &input[first as usize..=last as usize];
+            window.iter().zip(taps.iter()).map(|(s, w)| f64::from(*s) * w).sum::<f64>() as f32
         })
         .collect()
 }
@@ -419,6 +441,45 @@ mod tests {
         assert!((0.45..=0.52).contains(&peak), "{peak}");
         assert_eq!(resample(&tone[..10], 16_000).len(), 10);
         assert_eq!(resample(&tone[..100], 8_000).len(), 200);
+    }
+
+    /// The original per-sample windowed sinc, kept to pin the cached-phase version to it.
+    fn resample_reference(input: &[f32], rate: u32) -> Vec<f32> {
+        let ratio = 16_000.0 / rate as f64;
+        let cutoff = ratio.min(1.0) * 0.95;
+        let width = 16.0 / cutoff;
+        let count = (input.len() as f64 * ratio).floor() as usize;
+        (0..count)
+            .map(|i| {
+                let center = i as f64 / ratio;
+                let first = (center - width).ceil().max(0.0) as usize;
+                let last = ((center + width).floor() as usize).min(input.len() - 1);
+                let (mut sum, mut weights) = (0.0f64, 0.0f64);
+                for (k, sample) in input.iter().enumerate().take(last + 1).skip(first) {
+                    let t = k as f64 - center;
+                    let x = std::f64::consts::PI * cutoff * t;
+                    let sinc = if x.abs() < 1e-9 { 1.0 } else { x.sin() / x };
+                    let u = std::f64::consts::PI * t / width;
+                    let window = 0.42 + 0.5 * u.cos() + 0.08 * (2.0 * u).cos();
+                    sum += f64::from(*sample) * sinc * window;
+                    weights += sinc * window;
+                }
+                (sum / weights) as f32
+            })
+            .collect()
+    }
+
+    #[test]
+    fn cached_phase_resampling_matches_the_per_sample_kernel() {
+        for rate in [48_000u32, 44_100, 32_000, 22_050, 8_000] {
+            let signal: Vec<f32> = (0..rate as usize / 2)
+                .map(|i| (i as f32 * 0.05).sin() * 0.3 + (i as f32 * 0.31).sin() * 0.1 + ((i * 7919) % 101) as f32 / 1_000.0)
+                .collect();
+            let (fast, reference) = (resample(&signal, rate), resample_reference(&signal, rate));
+            assert_eq!(fast.len(), reference.len(), "{rate}");
+            let worst = fast.iter().zip(&reference).map(|(a, b)| (a - b).abs()).fold(0f32, f32::max);
+            assert!(worst < 1e-5, "{rate} Hz differs by {worst}");
+        }
     }
 
     #[test]

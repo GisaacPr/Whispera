@@ -66,6 +66,8 @@ pub struct Screen {
     frozen_generation: AtomicU64,
     frozen_ready: Mutex<std::collections::HashSet<String>>,
     selection_started: Mutex<Option<Instant>>,
+    /// Milestones of the current image selection, logged with "Selector de captura listo".
+    selection_stages: Mutex<Vec<String>>,
     snapshots: Mutex<std::collections::HashMap<String, crate::screen_capture::FrozenFrame>>,
 }
 struct Active {
@@ -96,6 +98,7 @@ impl Screen {
             frozen_generation: AtomicU64::new(0),
             frozen_ready: Mutex::new(std::collections::HashSet::new()),
             selection_started: Mutex::new(None),
+            selection_stages: Mutex::new(Vec::new()),
             snapshots: Mutex::new(std::collections::HashMap::new()),
         }
     }
@@ -503,6 +506,8 @@ fn select_locked(app: &tauri::AppHandle, screen: &Screen, kind: &str) -> Result<
     }
     hide_selectors(app, screen);
     *screen.selection_started.lock().map_err(|_| "Captura ocupada")? = Some(selection_requested);
+    if let Ok(mut stages) = screen.selection_stages.lock() { stages.clear(); }
+    selection_stage(screen, "congelado");
     *screen.snapshots.lock().map_err(|_| "Captura ocupada")? = snapshots;
     crate::shortcuts::register(app, "Escape")?;
     screen.selection_ready.store(false, Ordering::SeqCst);
@@ -607,6 +612,13 @@ fn selector_window(app: &tauri::AppHandle, label: &str) -> Result<tauri::Webview
     })
 }
 /// Prepare hidden selectors once, outside the first shortcut's critical path.
+/// Records how long after the shortcut a selection milestone happened (ms).
+fn selection_stage(screen: &Screen, name: &str) {
+    let Some(started) = screen.selection_started.lock().ok().and_then(|s| *s) else { return; };
+    if let Ok(mut stages) = screen.selection_stages.lock() {
+        stages.push(format!("{name} {}", started.elapsed().as_millis()));
+    }
+}
 pub fn warm_selectors(app: &tauri::AppHandle) -> Result<(), String> {
     let screen = app.state::<Screen>();
     let Ok(_gate) = screen.gate.try_lock() else { return Ok(()); };
@@ -773,7 +785,9 @@ pub fn screen_selection_image(app:tauri::AppHandle, window: tauri::WebviewWindow
     let screen=session::screen(&app,window.label());
     let snapshots = screen.snapshots.lock().map_err(|_| "Captura ocupada")?;
     let source=session::frozen_source(window.label()).unwrap_or_else(||window.label().into());
+    selection_stage(&screen, "imagen pedida");
     let bytes = snapshots.get(&source).map(|frame| frame.preview_bmp()).unwrap_or_default();
+    selection_stage(&screen, "imagen enviada");
     Ok(tauri::ipc::Response::new(bytes))
 }
 #[tauri::command]
@@ -807,6 +821,7 @@ pub fn screen_frozen_ready(app:tauri::AppHandle,window:tauri::WebviewWindow,gene
     #[cfg(windows)]
     crate::screen_editor::freeze_order(&window,true)?;
     screen.frozen_ready.lock().map_err(|_|"Captura ocupada")?.insert(window.label().into());
+    selection_stage(&screen, "fondo listo");
     let frozen=window.clone();let app_copy=app.clone();
     app.run_on_main_thread(move||{
         if frozen_generation(&session::screen(&app_copy,frozen.label()))!=Some(generation){return;}
@@ -843,7 +858,8 @@ pub fn screen_overlay_ready(
         if window.label() == session::label(window.label(),"screen-select-0") {
             window.set_focus().map_err(|e| e.to_string())?;
             if let Some(started) = screen.selection_started.lock().map_err(|_| "Captura ocupada")?.take() {
-                let _ = app.state::<Store>().event(&format!("Selector de captura listo en {} ms", started.elapsed().as_millis()));
+                let stages = screen.selection_stages.lock().map(|mut s| std::mem::take(&mut *s).join(", ")).unwrap_or_default();
+                let _ = app.state::<Store>().event(&format!("Selector de captura listo en {} ms ({stages})", started.elapsed().as_millis()));
                 crate::screen_editor::warm(&app,window.label());
             }
         }
