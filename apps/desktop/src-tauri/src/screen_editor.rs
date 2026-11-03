@@ -632,7 +632,7 @@ pub(crate) fn open_with_image(
         .map_err(|e| e.to_string())?;
     ink.set_focusable(kind != "video")
         .map_err(|e| e.to_string())?;
-    if session::secondary(source.label()){screen::protect(&ink)?;}
+    if session::secondary(source.label()){screen::protect(&ink)?;} else {screen::hide_border(&ink);}
     screen::protect(&tools)?;
     tools.set_ignore_cursor_events(false).map_err(|e| e.to_string())?;
     place_controls(&tools, &ctx, region, monitor, false)?;
@@ -645,6 +645,7 @@ pub(crate) fn open_with_image(
     }
     editor.configured.store(true, Ordering::SeqCst);
     source.set_ignore_cursor_events(false).map_err(|e|e.to_string())?;
+    screen::frozen_dim(source,Some(rect),false);
     screen::set_frame_region(source,Some(rect))?;
     session::emit_window(source,"screen-editor-reset",&ctx).map_err(|e|e.to_string())?;
     Ok(())

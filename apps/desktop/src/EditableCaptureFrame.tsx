@@ -5,7 +5,7 @@ import {adjustSelection,type SelectionRect,type SelectionHandle} from './selecti
 export type CaptureContext={id:string;kind:'image'|'video';width:number;height:number;scale:number;hud_scale?:number;hud_above?:boolean;frame_color?:string;rect?:SelectionRect;monitor_width?:number;monitor_height?:number;source_label?:string};
 const handles:SelectionHandle[]=['n','ne','e','se','s','sw','w','nw'];
 export default function EditableCaptureFrame({context}:{context:CaptureContext}) {
-  const [rect,setRect]=useState(context.rect!),[busy,setBusy]=useState(false),[error,setError]=useState('');
+  const [rect,setRect]=useState(context.rect!),[busy,setBusy]=useState(false),[dragging,setDragging]=useState(false),[error,setError]=useState('');
   const drag=useRef<{handle:SelectionHandle;rect:SelectionRect;x:number;y:number}|undefined>(undefined);
   const current=useRef(context.rect!),alive=useRef(true);
   const preview=useRef<{frame:number;pending?:SelectionRect;running?:Promise<void>;started?:Promise<unknown>}>({frame:0});
@@ -32,7 +32,7 @@ export default function EditableCaptureFrame({context}:{context:CaptureContext})
   useEffect(()=>{alive.current=true;return()=>{alive.current=false;cancelAnimationFrame(preview.current.frame);preview.current.pending=undefined;};},[]);
   const start=(e:PointerEvent<HTMLButtonElement>,handle:SelectionHandle)=>{
     if(busy||e.button!==0)return;e.preventDefault();e.stopPropagation();e.currentTarget.setPointerCapture(e.pointerId);
-    drag.current={handle,rect:current.current,x:e.clientX,y:e.clientY};setError('');
+    drag.current={handle,rect:current.current,x:e.clientX,y:e.clientY};setError('');setDragging(true);
     preview.current.started=invoke('screen_frame_drag',{active:true});
     void preview.current.started.catch(e=>{if(alive.current)setError(String(e));});
   };
@@ -67,12 +67,12 @@ export default function EditableCaptureFrame({context}:{context:CaptureContext})
         new Promise<void>(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve()))),
         new Promise<void>(resolve=>setTimeout(resolve,80)),
       ]);
-      await invoke('screen_frame_drag',{active:false}).catch(()=>{});if(alive.current)setBusy(false);
+      await invoke('screen_frame_drag',{active:false}).catch(()=>{});if(alive.current){setBusy(false);setDragging(false);}
     }
   };
   const props=(handle:SelectionHandle)=>({disabled:busy,onPointerDown:(e:PointerEvent<HTMLButtonElement>)=>start(e,handle),onPointerMove:move,onPointerUp:()=>void finish(),onPointerCancel:()=>void finish(true),onLostPointerCapture:()=>void finish(true)});
   return <div className="screen-indicator" aria-label="Área de captura editable">
-    <CaptureFrame width={rect.width} height={rect.height} color={context.frame_color} image={context.kind==='image'} testId="recording-frame" className="editable-capture-frame" style={{left:rect.x,top:rect.y}}>
+    <CaptureFrame width={rect.width} height={rect.height} color={context.frame_color} image={context.kind==='image'} dragging={dragging} testId="recording-frame" className="editable-capture-frame" style={{left:rect.x,top:rect.y}}>
       <button className="capture-frame-move" aria-label="Mover área de captura" title="Arrastrá para mover el área" {...props('move')}/>
       {handles.map(handle=><button key={handle} className={`capture-frame-handle capture-frame-handle-${handle}`} aria-label={`Cambiar tamaño ${handle}`} title="Arrastrá para cambiar el tamaño" {...props(handle)}/>)}
     </CaptureFrame>

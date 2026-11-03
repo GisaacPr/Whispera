@@ -10,9 +10,9 @@ try {
   await page.goto((process.env.WHISPERA_TEST_URL || 'http://127.0.0.1:5190') + '/overlay.html?view=screen-ink');
   const canvas=page.getByLabel('Editar captura');await canvas.waitFor();
   await page.waitForFunction(()=>window.calls.some(c=>c.command==='screen_editor_ready'));
-  assert.equal(await page.locator('.screen-image-frame').evaluate(e=>getComputedStyle(e).borderColor),'rgb(255, 255, 255)');
+  assert.equal(await page.locator('.screen-image-frame').evaluate(e=>getComputedStyle(e).borderColor),'rgba(0, 0, 0, 0)','the image editor draws no border line over the screenshot');
   const preview=PNG.sync.read(await page.screenshot());
-  assert.deepEqual(Array.from(preview.data.subarray((preview.width+100)*4,(preview.width+100)*4+3)),[255,255,255],'white border remains visible above the screenshot');
+  assert.notDeepEqual(Array.from(preview.data.subarray((preview.width+100)*4,(preview.width+100)*4+3)),[255,255,255],'no white border line flashes over the screenshot');
   await page.keyboard.press('a');await page.mouse.move(50,50);await page.mouse.down();await page.mouse.move(200,120);await page.mouse.up();
   await page.waitForFunction(()=>window.feedback.count===1);
   await page.keyboard.press('Control+z');await page.waitForFunction(()=>window.feedback.count===0&&window.feedback.canRedo);

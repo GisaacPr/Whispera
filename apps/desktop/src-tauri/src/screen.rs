@@ -233,8 +233,19 @@ fn hide_selectors(app: &tauri::AppHandle, screen: &Screen) {
         if label.starts_with(if screen.secondary {"image-select-"} else {"screen-select-"}) ||
             label.starts_with(if screen.secondary {"image-freeze-"} else {"screen-freeze-"}) {
             let _ = window.set_ignore_cursor_events(true);
-            let _ = window.hide();
             let _ = session::emit_window(&window,"screen-hide", ());
+            if label.contains("-freeze-") {
+                // A hidden webview keeps its last frame and shows it again on the next
+                // selection: the previous capture's dim would flash for an instant. Let it
+                // repaint empty (transparent, the live desktop shows through) before hiding.
+                let (app,window)=(app.clone(),window.clone());
+                std::thread::spawn(move||{
+                    std::thread::sleep(std::time::Duration::from_millis(120));
+                    let screen=session::screen(&app,window.label());
+                    // A new selection may already be showing this window again.
+                    if screen.frozen_ready.lock().map(|r|!r.contains(window.label())).unwrap_or(false) {let _=window.hide();}
+                });
+            } else {let _ = window.hide();}
         }
     }
 }
@@ -307,6 +318,20 @@ pub(crate) fn protect(window: &tauri::WebviewWindow) -> Result<(), String> {
     let layer=if label.contains("-freeze-"){0}else if label.ends_with("-ink"){1}else if label.contains("-select-"){2}else if label.ends_with("-tools"){3}else{4};
     crate::screen_capture::macos::window_action(window,20+base+layer,None)
 }
+/// Windows 11 paints a dark accent border around a focused borderless window,
+/// even a transparent one. The capture draws its own handles, so remove it.
+#[cfg(windows)]
+pub(crate) fn hide_border(window: &tauri::WebviewWindow) {
+    let Ok(hwnd)=window.hwnd() else {return};
+    unsafe {
+        let no_border=0xfffffffe_u32; // DWMWA_COLOR_NONE; older Windows ignores it.
+        let _=windows::Win32::Graphics::Dwm::DwmSetWindowAttribute(windows::Win32::Foundation::HWND(hwnd.0),
+            windows::Win32::Graphics::Dwm::DWMWA_BORDER_COLOR,
+            &no_border as *const _ as *const _,std::mem::size_of_val(&no_border) as u32);
+    }
+}
+#[cfg(not(windows))]
+pub(crate) fn hide_border(_window: &tauri::WebviewWindow) {}
 #[cfg(windows)]
 pub(crate) fn protect(window: &tauri::WebviewWindow) -> Result<(), String> {
     window
@@ -321,14 +346,7 @@ pub(crate) fn protect(window: &tauri::WebviewWindow) -> Result<(), String> {
         },
     };
     let hwnd = HWND(window.hwnd().map_err(|e| e.to_string())?.0);
-    // Windows 11 can paint the active accent at a monitor edge even on a
-    // borderless overlay. The capture already draws its own single frame.
-    unsafe {
-        let no_border=0xfffffffe_u32; // DWMWA_COLOR_NONE; older Windows ignores it.
-        let _=windows::Win32::Graphics::Dwm::DwmSetWindowAttribute(hwnd,
-            windows::Win32::Graphics::Dwm::DWMWA_BORDER_COLOR,
-            &no_border as *const _ as *const _,std::mem::size_of_val(&no_border) as u32);
-    }
+    hide_border(window);
     let mut affinity = 0;
     unsafe {
         SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE)
@@ -693,6 +711,13 @@ pub async fn screen_start_monitor(app: tauri::AppHandle, index: usize) -> Result
     let scale=window.scale_factor().map_err(|e|e.to_string())?;
     screen_start(app,window,Rect{x:0.,y:0.,width:size.width as f64/scale,height:size.height as f64/scale}).await
 }
+/// The selector is clipped to its edge ring after selection, so the frozen desktop
+/// below draws the dim around the capture instead.
+pub(crate) fn frozen_dim(window:&tauri::WebviewWindow,rect:Option<Rect>,moving:bool) {
+    if let Some(frozen)=window.app_handle().get_webview_window(&window.label().replace("-select-","-freeze-")) {
+        let _=session::emit_window(&frozen,"screen-frozen-dim",rect.map(|r|serde_json::json!({"x":r.x,"y":r.y,"width":r.width,"height":r.height,"moving":moving})));
+    }
+}
 #[cfg(target_os = "macos")]
 pub(crate) fn set_frame_region(window: &tauri::WebviewWindow, rect: Option<Rect>) -> Result<(), String> {
     crate::screen_capture::macos::window_action(window, if rect.is_some() { 3 } else { 2 }, rect)
@@ -728,7 +753,11 @@ pub fn screen_frame_drag(app: tauri::AppHandle, window: tauri::WebviewWindow, ac
     let ctx=crate::screen_editor::context_for(&app,window.label()).ok_or("Captura no disponible")?;
     if ctx.source_label!=window.label(){return Err("Vista incorrecta".into());}
     crate::screen_editor::drag_controls(&app,&window,active)?;
-    set_frame_region(&window,if active {None}else{Some(ctx.rect)})?;
+    // Keep the window clipped to its ring while dragging: dropping the region
+    // exposes the unpainted monitor-sized surface for a frame (a white flash at the
+    // screen edges). Pointer capture still delivers moves outside the ring, and
+    // screen_frame_preview moves the ring with the frame.
+    if !active {set_frame_region(&window,Some(ctx.rect))?;frozen_dim(&window,Some(ctx.rect),false);}
     crate::screen_editor::raise_controls(&app);
     Ok(())
 }
@@ -739,6 +768,8 @@ pub fn screen_frame_preview(app:tauri::AppHandle,window:tauri::WebviewWindow,id:
     let next=region(rect,ctx.scale,window.inner_position().map_err(|e|e.to_string())?,window.inner_size().map_err(|e|e.to_string())?)?;
     #[cfg(target_os = "macos")]
     let next=crate::screen_capture::macos::bind(&window,next)?;
+    set_frame_region(&window,Some(rect))?;
+    frozen_dim(&window,Some(rect),true);
     // Preview docks only: image bytes and the recording region are committed on release.
     crate::screen_editor::preview_controls(&app,&window,next)
 }

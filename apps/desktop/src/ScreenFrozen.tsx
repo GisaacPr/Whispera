@@ -9,7 +9,7 @@ import {frozenImageType} from './frozen-image';
 // A static, capture-excluded desktop underneath the independent ink and border.
 // It consumes clicks outside the editor without activating the real app behind it.
 export default function ScreenFrozen() {
-  const [snapshot,setSnapshot]=useState<string>();
+  const [snapshot,setSnapshot]=useState<string>(),[dim,setDim]=useState<{x:number;y:number;width:number;height:number;moving?:boolean}|null>(null);
   useEffect(()=>{
     let alive=true,revision=0,url:string|undefined,currentGeneration:number|undefined;const remove:UnlistenFn[]=[];
     const reset=async(generation:number)=>{
@@ -21,7 +21,7 @@ export default function ScreenFrozen() {
       try {
         const image=new Image();image.src=next;await image.decode();
         if(!alive||request!==revision){URL.revokeObjectURL(next);return;}
-        if(url)URL.revokeObjectURL(url);url=next;setSnapshot(next);
+        if(url)URL.revokeObjectURL(url);url=next;setDim(null);setSnapshot(next);
         await showWhenReady('screen_frozen_ready',{generation},()=>alive&&request===revision);
       } catch(error){if(next!==url)URL.revokeObjectURL(next);throw error;}
     };
@@ -32,7 +32,8 @@ export default function ScreenFrozen() {
     void(async()=>{
       for(const promise of [
         listen<number>('screen-frozen-reset',e=>start(e.payload)),
-        listen('screen-hide',()=>{++revision;currentGeneration=undefined;if(url)URL.revokeObjectURL(url);url=undefined;if(alive)setSnapshot(undefined);}),
+        listen('screen-hide',()=>{++revision;currentGeneration=undefined;if(url)URL.revokeObjectURL(url);url=undefined;if(alive){setSnapshot(undefined);setDim(null);}}),
+        listen<{x:number;y:number;width:number;height:number;moving?:boolean}|null>('screen-frozen-dim',e=>{if(alive)setDim(e.payload);}),
       ]) {const off=await promise;if(alive)remove.push(off);else off();}
       const requested=revision;
       const generation=await invoke<number|null>('screen_frozen_state');
@@ -40,5 +41,7 @@ export default function ScreenFrozen() {
     })().catch(()=>{});
     return()=>{alive=false;++revision;if(url)URL.revokeObjectURL(url);remove.forEach(off=>off());};
   },[]);
-  return snapshot?<div className="screen-frozen-desktop" aria-label="Pantalla congelada para captura" style={{backgroundImage:`url("${snapshot}")`}} onPointerDown={e=>{e.preventDefault();e.stopPropagation();}} onContextMenu={e=>e.preventDefault()}/>:null;
+  return snapshot?<div className="screen-frozen-desktop" aria-label="Pantalla congelada para captura" style={{backgroundImage:`url("${snapshot}")`}} onPointerDown={e=>{e.preventDefault();e.stopPropagation();}} onContextMenu={e=>e.preventDefault()}>
+    {dim&&<div className="screen-frozen-dim" data-moving={dim.moving} style={{left:dim.x,top:dim.y,width:dim.width,height:dim.height,borderRadius:Math.min(14,dim.width/2,dim.height/2)}}/>}
+  </div>:null;
 }

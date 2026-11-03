@@ -1,6 +1,6 @@
 import {useEffect,useRef,useState} from 'react';
 import {invoke} from '@tauri-apps/api/core';
-import type {UnlistenFn} from '@tauri-apps/api/event';
+import {emitTo,type UnlistenFn} from '@tauri-apps/api/event';
 import {Monitor} from 'lucide-react';
 import type {Settings} from './client';
 import {listenCapture as listen} from './capture-events';
@@ -95,6 +95,13 @@ export function ScreenSelection({kind='video',frameColor='#ffffff',snapshot,onPr
     return () => window.removeEventListener('keydown', listener);
   }, []);
   const rect = origin && end ? { x: Math.min(origin.x, end.x), y: Math.min(origin.y, end.y), width: Math.abs(end.x - origin.x), height: Math.abs(end.y - origin.y) } : undefined;
+  // On Windows the frozen desktop below draws the dim for the whole capture: one window owns it
+  // from the first drag to the editor, so releasing never hands it over (a visible blink).
+  const frozenDim=kind==='image'&&!snapshot;
+  useEffect(()=>{
+    if(!frozenDim||!('__TAURI_INTERNALS__' in window))return;
+    void import('@tauri-apps/api/window').then(({getCurrentWindow})=>emitTo(getCurrentWindow().label.replace('-select-','-freeze-'),'screen-frozen-dim',rect?{...rect,moving:!busy}:null)).catch(()=>{});
+  },[frozenDim,rect?.x,rect?.y,rect?.width,rect?.height,busy]);
   const beginCapture=async(rect:Rect)=>{
     if(busy)return;setBusy(true);onPreparing?.(rect);
     await new Promise(requestAnimationFrame);await new Promise(requestAnimationFrame);
@@ -121,7 +128,7 @@ export function ScreenSelection({kind='video',frameColor='#ffffff',snapshot,onPr
   }} onPointerCancel={interruptSelection} onLostPointerCapture={interruptSelection}>
     <div className="screen-selection-help" role="status">{busy ? 'Preparando…' : error || (kind==='image'?'Seleccioná el área para capturar.':'Seleccioná el área. Al soltar empieza a grabar.')} <kbd>{commandKey}+A: pantalla completa</kbd><kbd>Esc: salir</kbd></div>
     {kind==='video'&&!(rect&&(rect.width>5||rect.height>5))&&<MonitorPicker monitors={monitors} current={current} busy={busy} onPick={pickMonitor}/>}
-    {rect && <CaptureFrame className="screen-selection-rect" width={rect.width} height={rect.height} color={frameColor} style={{left:rect.x,top:rect.y}}/>}
+    {rect && <CaptureFrame className="screen-selection-rect" dragging={!frozenDim} width={rect.width} height={rect.height} color={frameColor} style={{left:rect.x,top:rect.y}}/>}
   </div>;
 }
 

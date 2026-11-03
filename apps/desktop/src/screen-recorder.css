@@ -3,7 +3,8 @@ html[data-screen-select="true"], html[data-screen-select="true"] body, html[data
 .screen-selection[data-has-selection="true"] { background: transparent; }
 .screen-selection-help { position: absolute; top: 24px; left: 50%; transform: translateX(-50%); padding: 12px 18px; border-radius: 12px; background: #18181b; color: white; z-index: 2; font-size: 14px; white-space: nowrap; }
 .screen-selection-help button { margin-left: 16px; padding: 5px 9px; color: white; border: 1px solid #666; border-radius: 6px; background: transparent; cursor: pointer; }
-.screen-selection-rect { box-shadow:0 0 0 100vmax #0004; }
+/* A faint light hairline keeps the selection readable over very dark screens. */
+.screen-selection-rect[data-dragging="true"] { box-shadow:0 0 0 1px #ffffff5c,0 0 0 100vmax #0004; }
 .screen-selection-rect span { position: absolute; bottom: 5px; left: 5px; background: #18181b; color: white; border-radius: 5px; padding: 4px 8px; font-size: 12px; }
 .screen-recorder-panel button { cursor: pointer; border: 1px solid #52525b; background: #27272a; color: white; padding: 10px 16px; border-radius: 9px; }
 .screen-recorder-panel button:disabled { opacity: .45; cursor: default; }
@@ -13,7 +14,7 @@ html[data-screen-select="true"], html[data-screen-select="true"] body, html[data
 .screen-frozen-desktop { position:fixed; inset:0; background-size:100% 100%; background-repeat:no-repeat; pointer-events:auto; touch-action:none; user-select:none; }
 /* Only three short strokes animate; no canvas loop or React frame updates. */
 /* Thin line in the chosen colour with a dark contour, readable over light and dark content. */
-.capture-frame { position:absolute; border:2px solid #fff; box-sizing:border-box; pointer-events:none; background:transparent; outline:1px solid #0009; }
+.capture-frame { position:absolute; border:2px solid #fff; box-sizing:border-box; pointer-events:none; background:transparent; }
 .screen-image-frame { inset:0; z-index:3; }
 @media print { .capture-frame { display:none; } }
 .screen-folder-indicator { position: absolute; pointer-events: none; }
@@ -23,9 +24,7 @@ html[data-screen-select="true"], html[data-screen-select="true"] body, html[data
 .screen-folder-caption output { display: block; margin-top: 5px; font-size: 25px; font-variant-numeric: tabular-nums; }
 .screen-selection-help { border:1px solid #ffffff20; box-shadow:0 8px 32px #0003; }
 .screen-selection-help kbd { margin-left:14px; font:11px 'Segoe UI',sans-serif; color:#aaa; }
-.screen-recording-frame[data-image="true"] { box-shadow:0 0 0 100vmax #0004; }
-/* Images dim what stays outside while you adjust; video does not, it would darken your screen while recording. */
-.editable-capture-frame[data-image="true"] { box-shadow:0 0 0 100vmax #0004; }
+/* The frozen desktop below already dims around the image capture; a second dim here would flash. */
 .screen-ink { position:fixed; inset:0; background:transparent; touch-action:none; user-select:none; cursor:crosshair; }
 .screen-ink[data-tool="pointer"] { cursor:default; }
 .screen-ink[data-tool="text"] { cursor:text; }
@@ -105,14 +104,14 @@ html[data-screen-select="true"], html[data-screen-select="true"] body, html[data
 .editable-capture-frame { pointer-events:none; outline:none; }
 /* While choosing and adjusting the area there is no line: the round handles (in the frame colour)
    and, for images, the dimmed outside mark it. The video recording indicator keeps its line. */
-.editable-capture-frame,.screen-selection-rect { border-color:transparent !important; outline:none; }
+.editable-capture-frame,.screen-selection-rect,.screen-image-frame,.screen-recording-frame[data-image="true"] { border-color:transparent !important; outline:none; }
 /* Focus belongs to the existing frame, never a second full-screen contour. */
 .capture-frame-move:focus-visible {outline:none;box-shadow:inset 0 0 0 1px var(--capture-frame-color,#fff);}
 .capture-frame-handle:focus-visible {outline:2px solid var(--capture-frame-color,#fff);outline-offset:0;}
 .capture-frame-move,.capture-frame-handle { position:absolute; pointer-events:auto; touch-action:none; padding:0; margin:0; border:0; background:transparent; }
 .capture-frame-move { inset:-5px; border:10px solid transparent; border-radius:inherit; cursor:move; clip-path:polygon(0 0,100% 0,100% 100%,0 100%,0 0,10px 10px,10px calc(100% - 10px),calc(100% - 10px) calc(100% - 10px),calc(100% - 10px) 10px,10px 10px); }
 .capture-frame-handle { width:16px; height:16px; transform:translate(-50%,-50%); }
-.capture-frame-handle::after { content:''; position:absolute; inset:3px; border:1.5px solid #000a; background:var(--capture-frame-color,#fff); border-radius:50%; box-shadow:0 1px 3px #0006; }
+.capture-frame-handle::after { content:''; position:absolute; inset:3px; border:0; background:var(--capture-frame-color,#fff); border-radius:50%; box-shadow:0 1px 3px #0006; }
 .capture-frame-handle:hover::after { box-shadow:0 0 0 3px #ffffff59,0 1px 3px #0006; }
 .capture-frame-handle-n { left:50%;top:0;cursor:ns-resize; }.capture-frame-handle-ne {left:100%;top:0;cursor:nesw-resize;}
 .capture-frame-handle-e {left:100%;top:50%;cursor:ew-resize;}.capture-frame-handle-se {left:100%;top:100%;cursor:nwse-resize;}
@@ -153,3 +152,5 @@ html[data-screen-select="true"], html[data-screen-select="true"] body, html[data
 .screen-esc-notice kbd { min-width:32px; height:26px; padding:3px 8px; text-align:center; border-radius:6px; font:500 13px/20px inherit; color:#f2f2f4; background:#ffffff14; box-shadow:inset 0 -2px 0 #0006,0 0 0 1px #ffffff14; }
 @keyframes screen-esc-in { from { opacity:0; transform:translate(-50%,calc(-50% + 8px)); } }
 @media(prefers-reduced-motion:reduce){ .screen-esc-notice { animation:none; } }
+/* After selection the selector is clipped to its edge ring, so the frozen desktop dims the outside. */
+.screen-frozen-dim { position:absolute; pointer-events:none; box-shadow:0 0 0 1px #ffffff5c,0 0 0 100vmax #0004; }
