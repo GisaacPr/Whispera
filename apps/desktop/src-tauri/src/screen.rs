@@ -1775,10 +1775,12 @@ fn record(
         ]);
     // Encode on the graphics card when one is available: libx264 at 30 fps took enough
     // CPU to make the whole desktop feel slow while recording. H.264 hardware encoders
-    // stop at 4096 px, so wider captures keep the software encoder.
+    // stop at 4096 px and NVENC rejects frames under ~145 px (the probe uses 256), so
+    // captures outside 256..=4096 keep the software encoder.
     #[cfg(windows)]
     {
-        let encoder=if output_size.0<=4096&&output_size.1<=4096 {crate::replay::hardware_encoder(&binary).ok()} else {None};
+        let fits=|side:u32|(256..=4096).contains(&side);
+        let encoder=if fits(output_size.0)&&fits(output_size.1) {crate::replay::hardware_encoder(&binary).ok()} else {None};
         match encoder {
             Some(name) => capture_command.args(crate::replay::encoder_args(&name)),
             None => capture_command.args(["-c:v","libx264","-preset","veryfast","-tune","zerolatency","-crf","18"]),
