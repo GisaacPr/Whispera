@@ -394,6 +394,8 @@ export function createRealisticFolderScene(canvas: HTMLCanvasElement, width: num
       cancelAnimationFrame(raf);
       stitches.dispose(); mark.dispose();
       disposables.forEach(item => item.dispose());
+      // Give the WebGL context back now: WebView2 caps live contexts per page and reuses them slowly.
+      renderer.forceContextLoss();
       renderer.dispose();
     }
   };
