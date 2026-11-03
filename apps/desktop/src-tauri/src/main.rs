@@ -8,7 +8,6 @@ mod replay_audio;
 mod encoder_job;
 mod video_trim;
 mod updates;
-mod upstream_updates;
 mod update_transport;
 mod audio;
 mod capture_history;
@@ -652,7 +651,7 @@ fn main() {
             replay::replay_preferences, replay::replay_status, replay::replay_create_folder, replay::replay_save_preferences, replay::replay_save,
             video_trim::video_trim_open, video_trim::video_trim_context, video_trim::video_trim_close, video_trim::video_trim_save,
             tray::tray_menu_state, tray::tray_menu_fit, tray::tray_menu_action,
-            updates::updater_status, updates::updater_check, updates::updater_install, updates::updater_open_upstream,
+            updates::updater_status, updates::updater_check, updates::updater_install,
             library::library_state,
             library::library_collect,
             library::library_action,
