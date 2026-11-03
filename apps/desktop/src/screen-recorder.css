@@ -103,6 +103,9 @@ html[data-screen-select="true"], html[data-screen-select="true"] body, html[data
 .capture-hud[data-paused="true"] .capture-hud-time i { background:#ffca3a; }
 .capture-hud-error { position:absolute; top:54px; right:8px; left:8px; padding:8px; background:#302126; border:1px solid #9b5656; border-radius:8px; color:#ffd0d0; font-size:12px; }
 .editable-capture-frame { pointer-events:none; outline:none; }
+/* While choosing and adjusting the area there is no line: the round handles (in the frame colour)
+   and, for images, the dimmed outside mark it. The video recording indicator keeps its line. */
+.editable-capture-frame,.screen-selection-rect { border-color:transparent !important; outline:none; }
 /* Focus belongs to the existing frame, never a second full-screen contour. */
 .capture-frame-move:focus-visible {outline:none;box-shadow:inset 0 0 0 1px var(--capture-frame-color,#fff);}
 .capture-frame-handle:focus-visible {outline:2px solid var(--capture-frame-color,#fff);outline-offset:0;}
@@ -115,9 +118,6 @@ html[data-screen-select="true"], html[data-screen-select="true"] body, html[data
 .capture-frame-handle-e {left:100%;top:50%;cursor:ew-resize;}.capture-frame-handle-se {left:100%;top:100%;cursor:nwse-resize;}
 .capture-frame-handle-s {left:50%;top:100%;cursor:ns-resize;}.capture-frame-handle-sw {left:0;top:100%;cursor:nesw-resize;}
 .capture-frame-handle-w {left:0;top:50%;cursor:ew-resize;}.capture-frame-handle-nw {left:0;top:0;cursor:nwse-resize;}
-/* The frame has the export's 14 px rounded corners: draw the corner dots on the arc (14·(1−cos 45°) ≈ 4 px in);
-   the grab area stays on the corner. */
-.capture-frame-handle-nw::after{transform:translate(4px,4px)}.capture-frame-handle-ne::after{transform:translate(-4px,4px)}.capture-frame-handle-se::after{transform:translate(-4px,-4px)}.capture-frame-handle-sw::after{transform:translate(4px,-4px)}
 .capture-frame-error { position:absolute; padding:5px 9px; border-radius:6px; background:#18181b; color:#fff; font-size:12px; }
 .capture-hud-esc { display:inline-flex; align-items:center; gap:6px; padding:0 10px; height:28px; border-radius:8px; background:#ff5f6226; color:#ffd9d9; font-size:12px; font-weight:600; white-space:nowrap; animation:capture-hud-esc-in .18s ease-out; }
 .capture-hud-esc kbd { padding:1px 6px; border-radius:5px; background:#ffffff1f; font:inherit; font-size:11px; }

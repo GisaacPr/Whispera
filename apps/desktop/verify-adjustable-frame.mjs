@@ -34,7 +34,7 @@ try {
       assert.deepEqual(await page.evaluate(()=>window.editorContext.rect),committed,'drag previews do not recrop images or change the video region');
       assert.equal(await page.evaluate(()=>window.calls.filter(c=>c.command==='screen_resize_region').length),crops);
       assert.equal(await frame.evaluate(e=>e===window.originalBorder),true,'the same border element stays during dragging');
-      assert.equal(await frame.evaluate(e=>getComputedStyle(e).borderColor),'rgb(255, 255, 255)');
+      assert.equal(await frame.evaluate(e=>getComputedStyle(e).borderColor),'rgba(0, 0, 0, 0)','no visible line while adjusting: only the handles');
       assert.equal(await frame.evaluate(e=>getComputedStyle(e).outlineStyle),'none');
       await assertStaticBorder();
       await page.mouse.up();
