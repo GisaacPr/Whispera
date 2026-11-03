@@ -754,6 +754,16 @@ pub(crate) fn set_frame_region(window: &tauri::WebviewWindow, rect: Option<Rect>
 }
 #[cfg(windows)]
 pub(crate) fn set_frame_region(window: &tauri::WebviewWindow, rect: Option<Rect>) -> Result<(), String> {
+    frame_region(window,rect,8.)
+}
+// A wider ring while dragging: fast moves outrun the region update, and an 8px
+// ring would clip the edge being dragged until the pointer slows down.
+#[cfg(not(windows))]
+fn drag_frame_region(window: &tauri::WebviewWindow, rect: Option<Rect>) -> Result<(), String> {set_frame_region(window,rect)}
+#[cfg(windows)]
+fn drag_frame_region(window: &tauri::WebviewWindow, rect: Option<Rect>) -> Result<(), String> {frame_region(window,rect,96.)}
+#[cfg(windows)]
+fn frame_region(window: &tauri::WebviewWindow, rect: Option<Rect>, edge: f64) -> Result<(), String> {
     let clone=window.clone();
     window.run_on_main_thread(move || unsafe {
         use windows::Win32::Graphics::Gdi::{CreateRectRgn,CreateRoundRectRgn,CombineRgn,SetWindowRgn,DeleteObject,RGN_DIFF};
@@ -763,7 +773,6 @@ pub(crate) fn set_frame_region(window: &tauri::WebviewWindow, rect: Option<Rect>
         // immediate background erase here flashes the monitor-sized surface.
         let Some(rect)=rect else {SetWindowRgn(hwnd,None,false);return;};
         let dpi=clone.scale_factor().unwrap_or(1.);
-        let edge=8.;
         let outer=CreateRoundRectRgn(((rect.x-edge)*dpi).floor() as i32,((rect.y-edge)*dpi).floor() as i32,
             ((rect.x+rect.width+edge)*dpi).ceil() as i32,((rect.y+rect.height+edge)*dpi).ceil() as i32,(28.*dpi) as i32,(28.*dpi) as i32);
         let inner=CreateRectRgn(((rect.x+edge)*dpi).ceil() as i32,((rect.y+edge)*dpi).ceil() as i32,
@@ -795,14 +804,13 @@ pub fn screen_frame_drag(app: tauri::AppHandle, window: tauri::WebviewWindow, ac
 pub fn screen_frame_preview(app:tauri::AppHandle,window:tauri::WebviewWindow,id:String,rect:Rect)->Result<(),String> {
     let ctx=crate::screen_editor::context_for(&app,window.label()).ok_or("Captura no disponible")?;
     if ctx.id!=id||ctx.source_label!=window.label(){return Err("La captura ya termino".into());}
-    let next=region(rect,ctx.scale,window.inner_position().map_err(|e|e.to_string())?,window.inner_size().map_err(|e|e.to_string())?)?;
-    #[cfg(target_os = "macos")]
-    let next=crate::screen_capture::macos::bind(&window,next)?;
-    set_frame_region(&window,Some(rect))?;
+    region(rect,ctx.scale,window.inner_position().map_err(|e|e.to_string())?,window.inner_size().map_err(|e|e.to_string())?)?;
+    drag_frame_region(&window,Some(rect))?;
     frozen_dim(&window,Some(rect),true);
     ink_crop(&app,&window,&ctx,Some(rect));
-    // Preview docks only: image bytes and the recording region are committed on release.
-    crate::screen_editor::preview_controls(&app,&window,next)
+    // The docks stay put while dragging and move on release (drag_controls):
+    // moving a separate window every frame lags behind and covers the bottom edge.
+    Ok(())
 }
 #[tauri::command]
 pub async fn screen_resize_region(app: tauri::AppHandle, window: tauri::WebviewWindow, id:String, rect:Rect) -> Result<(),String> {
