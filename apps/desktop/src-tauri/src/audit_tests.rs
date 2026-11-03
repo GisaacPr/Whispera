@@ -24,7 +24,7 @@ fn audit_settings_all_discrete_values_and_numeric_boundaries() {
             for sound in ["pop","marimba","cristal","gota","madera","seda","pulso","orbita","tecla","destello"] {
                 for placement in ["left","right","top","bottom"] {
                     for pattern in ["wave","stairs"] {
-                        for artwork in ["original","metallic"] {
+                        for artwork in ["original","metallic","realistic"] {
                             let mut s=Settings::default();s.model=model.into();s.language=language.into();s.sound_theme=sound.into();s.placement=placement.into();s.pattern=pattern.into();s.dictation_artwork=artwork.into();
                             assert!(s.validate().is_ok());
                         }

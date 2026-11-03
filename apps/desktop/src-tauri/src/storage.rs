@@ -66,7 +66,7 @@ impl Settings {
         if !["plum","graphite","navy","forest","slate","sand"].contains(&self.app_theme.as_str()) {
             return Err("Tema de aplicación no admitido".into());
         }
-        if !["original", "metallic"].contains(&self.dictation_artwork.as_str()) {
+        if !["original", "metallic", "realistic"].contains(&self.dictation_artwork.as_str()) {
             return Err("Indicador de dictado no admitido".into());
         }
         if self.metallic_color.len()!=7 || !self.metallic_color.starts_with('#') || !self.metallic_color[1..].bytes().all(|b|b.is_ascii_hexdigit()) {
