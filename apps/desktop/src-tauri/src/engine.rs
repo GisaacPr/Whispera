@@ -91,6 +91,7 @@ pub async fn recording_action(action: String, app: tauri::AppHandle) -> Result<(
         .map_err(|e| e.to_string())?
 }
 pub fn control(app: &tauri::AppHandle, action: &str) -> Result<(), String> {
+    let pressed = std::time::Instant::now();
     let _updating = crate::updates::work(app)?;
     // Capture before microphone/keyring initialization can yield or change focus.
     let original_target = if action == "start" { crate::paste::capture() } else { None };
@@ -118,6 +119,7 @@ pub fn control(app: &tauri::AppHandle, action: &str) -> Result<(), String> {
                 system_audio::restore(&engine.mute_journal)?;
             }
             let id = engine.recorder.start(&settings.microphone)?;
+            log_microphone_latency(app.clone(), engine.recorder.state.clone(), pressed);
             // The upload compressor runs at stop; load it while the user speaks.
             if let Ok(binary) = crate::screen::ffmpeg(app) { crate::screen::warm_encoder(&binary); }
             // A local model transcribes the whole take in well under a second, so
@@ -225,6 +227,54 @@ pub fn control(app: &tauri::AppHandle, action: &str) -> Result<(), String> {
 fn hide_after_completion(live_dictation: bool, state: &RecordingState) -> bool {
     live_dictation && state.phase == "done"
 }
+/// Logs how long the microphone took to open and to deliver its first audio after the shortcut.
+/// Speech before the first audio is not recorded, so this is the delay the user feels at the start.
+fn log_microphone_latency(app: tauri::AppHandle, state: Arc<std::sync::Mutex<RecordingState>>, pressed: std::time::Instant) {
+    let opened = pressed.elapsed().as_millis();
+    let _ = std::thread::Builder::new().name("whispera-mic-latency".into()).spawn(move || {
+        let deadline = pressed + std::time::Duration::from_secs(5);
+        let first = loop {
+            if state.lock().unwrap_or_else(|e| e.into_inner()).seconds > 0.0 { break Some(pressed.elapsed().as_millis()); }
+            if std::time::Instant::now() > deadline { break None; }
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        };
+        let first = first.map_or("sin audio en 5 s".to_owned(), |ms| format!("primer audio en {ms} ms"));
+        let _ = app.state::<Store>().event(&format!("Grabacion: microfono abierto en {opened} ms; {first}"));
+    });
+}
+/// What the floating recorder must react to at once; timer and level changes are left to its poll.
+fn recording_signal(state: &RecordingState) -> (String, bool, String, bool) {
+    (state.phase.clone(), state.muted, state.session.clone(), state.error.is_empty())
+}
+/// The recorder window polls every 250 ms, which delayed its reaction to the dictation shortcut.
+/// The state changes in several places (including the audio thread), so a cheap in-process watch
+/// notifies the window as soon as any of them changes the phase; the poll remains as a fallback.
+pub fn watch_recorder(app: tauri::AppHandle) {
+    let _ = std::thread::Builder::new()
+        .name("whispera-recorder-watch".into())
+        .spawn(move || {
+            let mut last = None;
+            loop {
+                std::thread::sleep(std::time::Duration::from_millis(15));
+                let signal = {
+                    let state = app.state::<Engine>().recorder.state.clone();
+                    let state = state.lock().unwrap_or_else(|e| e.into_inner());
+                    recording_signal(&state)
+                };
+                if last.as_ref() != Some(&signal) {
+                    if last.is_some() {
+                        let _ = tauri::Emitter::emit_to(&app, "recorder", "recording-changed", ());
+                    }
+                    last = Some(signal);
+                }
+            }
+        });
+}
+/// The realistic 3D folder plays a short closing animation after a dictation; keep the
+/// recorder visible for it. Other artworks hide immediately, as before.
+fn completion_hide_delay(artwork: &str) -> Option<std::time::Duration> {
+    (artwork == "realistic").then(|| std::time::Duration::from_millis(1600))
+}
 fn schedule(
     app: tauri::AppHandle,
     engine: &Engine,
@@ -234,6 +284,7 @@ fn schedule(
     if engine.processing.swap(true, Ordering::SeqCst) {
         return Err("Ya hay una transcripcion en curso".into());
     }
+    let audio_seconds = engine.recorder.snapshot().seconds;
     engine.recorder.change(|s| {
         s.phase = "processing".into();
         s.session = id.clone();
@@ -286,11 +337,30 @@ fn schedule(
                     }
                     s.progress.clear();
                 });
-                let _ = app.state::<Store>().event(&format!("Dictado: texto listo en {text_ready_ms} ms; copia/pegado en {} ms",
+                let _ = app.state::<Store>().event(&format!("Dictado: {audio_seconds:.1} s de audio; texto listo en {text_ready_ms} ms; copia/pegado en {} ms",
                     processing_started.elapsed().as_millis().saturating_sub(text_ready_ms)));
                 if hide_after_completion(live_dictation, &engine.recorder.snapshot()) {
-                    if let Some(window) = app.get_webview_window("recorder") {
-                        let _ = window.hide();
+                    let artwork = app.state::<Store>().get::<Settings>("settings").map(|s| s.dictation_artwork).unwrap_or_default();
+                    match completion_hide_delay(&artwork) {
+                        None => {
+                            if let Some(window) = app.get_webview_window("recorder") {
+                                let _ = window.hide();
+                            }
+                        }
+                        Some(delay) => {
+                            // Let the folder finish its closing animation; skip the hide if a new take started.
+                            let app = app.clone();
+                            let id = id.clone();
+                            std::thread::spawn(move || {
+                                std::thread::sleep(delay);
+                                let state = app.state::<Engine>().recorder.snapshot();
+                                if state.session == id && hide_after_completion(true, &state) {
+                                    if let Some(window) = app.get_webview_window("recorder") {
+                                        let _ = window.hide();
+                                    }
+                                }
+                            });
+                        }
                     }
                 }
             }
@@ -429,6 +499,30 @@ pub fn shutdown(app: &tauri::AppHandle) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn recorder_signal_tracks_phase_mute_session_and_errors_but_not_the_timer() {
+        let base = RecordingState { phase: "recording".into(), session: "a".into(), ..Default::default() };
+        let mut ticked = base.clone();
+        ticked.seconds = base.seconds + 1.0;
+        assert_eq!(recording_signal(&base), recording_signal(&ticked));
+        for change in [
+            |s: &mut RecordingState| s.phase = "processing".into(),
+            |s: &mut RecordingState| s.muted = !s.muted,
+            |s: &mut RecordingState| s.session = "b".into(),
+            |s: &mut RecordingState| s.error = "Microfono desconectado".into(),
+        ] {
+            let mut changed = base.clone();
+            change(&mut changed);
+            assert_ne!(recording_signal(&base), recording_signal(&changed));
+        }
+    }
+    #[test]
+    fn only_the_realistic_folder_delays_hiding_for_its_closing_animation() {
+        assert_eq!(completion_hide_delay("realistic"), Some(std::time::Duration::from_millis(1600)));
+        assert_eq!(completion_hide_delay("original"), None);
+        assert_eq!(completion_hide_delay("metallic"), None);
+        assert_eq!(completion_hide_delay(""), None);
+    }
     #[test]
     fn completed_dictation_hides_but_processing_and_errors_stay_visible() {
         let mut state = RecordingState {

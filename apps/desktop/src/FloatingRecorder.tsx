@@ -1,10 +1,12 @@
 import { useEffect, useState, type CSSProperties, type MouseEvent } from 'react';
 import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { MotionConfig } from 'motion/react';
 import { Mic, Copy, Check, AlertCircle } from 'lucide-react';
 import ControlledFolder from './ControlledFolder';
 import IndicatorArtwork from './IndicatorArtwork';
+import RealisticFolder from './RealisticFolder';
 import FolderControls from './FolderControls';
 import { native, readSettings, type Settings } from './client';
 import { contrastInk } from './palette';
@@ -55,7 +57,10 @@ export default function FloatingRecorder() {
         if (Date.now() - refreshed > 1500) { const value = await readSettings(); if (!disposed) setSettings(previous=>shallowEqual(previous,value)?previous:value); refreshed = Date.now(); }
       } catch (e) { if (!disposed) setError(String(e)); }
     }
-    const stop=visiblePoll(poll,250);return () => { disposed = true;stop(); };
+    const stop=visiblePoll(poll,250);
+    // Rust announces phase changes immediately (dictation shortcut); the poll stays as a fallback.
+    const unlisten=native?listen('recording-changed',()=>{void poll();}).catch(()=>undefined):Promise.resolve(undefined);
+    return () => { disposed = true;stop();void unlisten.then(off=>off?.()); };
   }, []);
   useEffect(() => {
     if (state.phase !== 'recording' && state.phase !== 'processing') return;
@@ -83,7 +88,7 @@ export default function FloatingRecorder() {
   const time = `${Math.floor(state.seconds / 60).toString().padStart(2, '0')}:${Math.floor(state.seconds % 60).toString().padStart(2, '0')}`;
   return <main className="floating-recorder" data-phase={state.phase} aria-label="Grabadora flotante" style={{ transform: `scale(${scale})`, transformOrigin: 'top left', '--folder-color': color, '--folder-ink': contrastInk(color), '--metallic-ink':(settings?.metallicOriginal??true)?'#f4f4f6':contrastInk(color) } as CSSProperties}>
     <MotionConfig reducedMotion="user"><div className="float-rig" data-artwork={settings?.dictationArtwork??'original'} onMouseDown={drag}>
-      {settings?.dictationArtwork==='metallic'?<IndicatorArtwork kind="folder" original={settings.metallicOriginal??true} color={color} active={state.phase==='recording'||state.phase==='processing'}/>:<ControlledFolder color="black" customColor={color} visualState={visual} recordingStep={recording ? step : undefined} pattern={settings?.pattern ?? 'wave'} size="md" />}
+      {settings?.dictationArtwork==='realistic'?<RealisticFolder time={time} mode={recording?'listening':state.phase==='processing'?'transcribing':state.phase==='done'?'complete':'idle'}/>:settings?.dictationArtwork==='metallic'?<IndicatorArtwork kind="folder" original={settings.metallicOriginal??true} color={color} active={state.phase==='recording'||state.phase==='processing'}/>:<ControlledFolder color="black" customColor={color} visualState={visual} recordingStep={recording ? step : undefined} pattern={settings?.pattern ?? 'wave'} size="md" />}
       <FolderControls color="black" customColor={color} open={open} placement={settings?.placement ?? 'right'} muted={state.muted} paused={state.phase === 'paused'} onMute={() => void run('recording_action', { action: 'mute' })} onPause={() => void run('recording_action', { action: 'pause' })} onStop={() => void run('recording_action', { action: 'stop' })} />
       <div className="float-readout"><span role="status" title={state.progress || labels[state.phase]}><i data-phase={state.phase} />{labels[state.phase]}</span><output aria-label="Tiempo grabado">{time}</output></div>
       <div className="float-actions">

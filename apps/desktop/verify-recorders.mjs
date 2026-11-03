@@ -28,6 +28,9 @@ try{
  await page.getByRole('button',{name:'Copiar transcripción',exact:true}).click();assert.ok(await page.evaluate(()=>window.calls.some(c=>c.command==='copy_recording')));
  await page.waitForFunction(()=>document.querySelector('.floating-recorder').style.transform==='scale(1.25)');
  await page.evaluate(()=>{window.voiceState={...window.voiceState,phase:'error',error:'Prueba de recuperación'};});await page.getByRole('alert').click();assert.ok(await page.evaluate(()=>window.calls.some(c=>c.command==='open_recording_details')));
+ // The shortcut must show in the recorder at once: Rust emits recording-changed instead of waiting for the 250 ms poll.
+ await page.evaluate(()=>{window.voiceState={...window.voiceState,phase:'idle',error:''};});await page.locator('.floating-recorder[data-phase="idle"]').waitFor();
+ for(const phase of ['recording','idle','recording','idle','recording']){const elapsed=await page.evaluate(phase=>new Promise(resolve=>{window.voiceState={...window.voiceState,phase};const started=performance.now();window.emitNative('recording-changed',null,'recorder');const check=()=>document.querySelector('.floating-recorder')?.dataset.phase===phase?resolve(performance.now()-started):requestAnimationFrame(check);check();}),phase);assert.ok(elapsed<80,'recorder reacted to '+phase+' in '+Math.round(elapsed)+' ms, not on the next poll');}
  await page.goto(base+'/?view=details',{timeout:90000});await page.getByRole('button',{name:'Grabar',exact:true}).click();
  await page.getByRole('button',{name:'Guardar sin transcribir',exact:true}).click();await page.getByText('Audio guardado',{exact:true}).waitFor();
  await page.evaluate(()=>window.voiceState={...window.voiceState,phase:'done',text:'Texto sintético original'});

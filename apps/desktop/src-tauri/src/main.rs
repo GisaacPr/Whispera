@@ -581,6 +581,7 @@ fn main() {
             app.manage(capture_session::ImageCapture::default());
             app.manage(screen_editor::Editor::default());
             app.manage(engine::Engine::new(dir.clone()).map_err(std::io::Error::other)?);
+            engine::watch_recorder(app.handle().clone());
             app.manage(replay::Replay::default());
             app.manage(video_trim::Editors::default());
             app.manage(updates::Updates::default());
