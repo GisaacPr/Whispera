@@ -793,13 +793,15 @@ pub async fn screen_overlay_customize(app:tauri::AppHandle,window:tauri::Webview
         // A rail size report must not shrink the window under an open panel: the
         // panel would be clipped and look like it never opened. Closing it re-places.
         let panel=tools&&action=="size"&&editor.panel_open.load(Ordering::SeqCst);
-        if !panel && action!="get" && action!="begin" && (bounds.x,bounds.y,bounds.width,bounds.height)!=(previous.x,previous.y,previous.width,previous.height) {screen::place_window(&window,bounds)?;}
+        let mut moved=false;
+        if !panel && action!="get" && action!="begin" && (bounds.x,bounds.y,bounds.width,bounds.height)!=(previous.x,previous.y,previous.width,previous.height) {screen::place_window(&window,bounds)?;moved=true;}
         if let Some(bounds)=hud_update {
-            if let Some(hud)=app.get_webview_window(&session::label(&id,"screen-hud")) {screen::place_window(&hud,bounds)?;}
+            if let Some(hud)=app.get_webview_window(&session::label(&id,"screen-hud")) {screen::place_window(&hud,bounds)?;moved=true;}
         }
-        // Moving or resizing a dock (collapse, rotate, drag) can reorder topmost windows and put
-        // the capture border under the frozen image; restore the order like every other control path.
-        if action!="get" && action!="begin" {raise_controls(&app);}
+        // Moving or resizing a dock (collapse, rotate, drag) can reorder topmost windows and put the
+        // capture border under the frozen image. Restore the order only when a window really moved:
+        // re-raising on every size report made the monitor-sized windows flash.
+        if moved {raise_controls(&app);}
         if ["configure","end","cancel","reset","nudge"].contains(&action.as_str()) {
             let store=app.state::<crate::storage::Store>();
             // Update this dock only: an image editor can coexist with a video.

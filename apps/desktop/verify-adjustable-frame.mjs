@@ -43,9 +43,9 @@ try {
       assert.equal(await frame.evaluate(e=>e===window.originalBorder&&e.querySelector('svg')===window.originalBeam),true,'same animated border remains during dragging');
       assert.equal(await frame.evaluate(e=>getComputedStyle(e).borderColor),'rgb(255, 255, 255)');
       assert.equal(await frame.evaluate(e=>getComputedStyle(e).outlineStyle),'none');
-      const beam=await page.locator('.capture-border-beam rect').first().evaluate(e=>{const s=getComputedStyle(e);return {name:s.animationName,count:s.animationIterationCount};});
-      assert.ok(beam.name.startsWith('capture-border-travel'),beam.name);
-      assert.ok(!beam.count.includes('infinite'),'the border beam runs once: an endless beam repaints the whole selector window every frame');
+      const beam=await page.locator('.capture-border-beam rect').first().evaluate(e=>({name:getComputedStyle(e).animationName,visibility:getComputedStyle(e).visibility}));
+      assert.equal(beam.name,'none','the capture border is static: an animated beam repainted the monitor-sized selector every frame and flickered when it replayed');
+      assert.equal(beam.visibility,'hidden');
       await assertBeamAligned();
       await page.mouse.up();
       await page.waitForFunction(()=>window.calls.at(-1)?.command==='screen_frame_drag'&&window.calls.at(-1).args.active===false);
