@@ -1,5 +1,20 @@
 # Third-party notices / Atribuciones
 
+## Local transcription / Transcripción local
+
+- transcribe.cpp and its Rust bindings `transcribe-cpp` 0.4.1 (Handy Computer), with ggml: MIT.
+  https://github.com/handy-computer/transcribe.cpp . Linked statically; Vulkan backend on Windows, Metal on macOS.
+- Vulkan loader (`vulkan-1.dll`, provided by the graphics driver; import library from the LunarG Vulkan SDK): Apache-2.0.
+- Models are not bundled; users download them from Hugging Face on demand:
+  - Parakeet TDT 0.6B v3 (NVIDIA), CC-BY-4.0. GGUF conversion: `handy-computer/parakeet-tdt-0.6b-v3-gguf`.
+  - Whisper large-v3-turbo (OpenAI), MIT. GGUF conversion: `handy-computer/whisper-large-v3-turbo-gguf`.
+  - Silero VAD v6.2 (Silero Team), MIT. GGUF conversion: `handy-computer/silero-vad-v6.2-gguf`.
+- The speech pipeline (VAD thresholds, release tail, minimum padding) follows Hex by Anomaly
+  (https://github.com/anomalyco/hex), MIT. No Hex source is included.
+
+## Other components / Otros componentes
+
+
 - Rare UI folder: Swami Malode, MIT. Original license: `apps/desktop/vendor/LICENSE`.
   https://github.com/swamimalode07/rare-ui . Preserved source and adapted ControlledFolder.
 - Grid Reveal: Swami Malode / [Rare UI](https://www.rareui.com/components/gridreveal),

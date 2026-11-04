@@ -1,9 +1,27 @@
 # Privacy / Privacidad
 
+## Transcription engine / Motor de transcripción
+
+Whispera has two engines, chosen in setup or in Settings › Transcription.
+**Local** runs the model on this computer: audio is never sent anywhere, and it works offline.
+**Groq** sends audio and active dictionary hints to Groq over HTTPS with your own key, as described below.
+Local models are downloaded once from Hugging Face (pinned revisions, verified with SHA-256) into
+`%USERPROFILE%.whisperadesktopmodels`. The 1.2 MB Silero speech detector is downloaded the same way
+and runs on this computer for both engines: audio it hears no speech in is not transcribed or sent.
+Video speech and imported non-WAV files still use Groq.
+
+Whispera tiene dos motores, elegidos en la guía o en Configuración › Transcripción.
+**Local** corre el modelo en esta computadora: el audio no se envía a ningún lado y funciona sin internet.
+**Groq** envía audio y vocabulario activo a Groq por HTTPS con tu propia clave, como se detalla abajo.
+Los modelos locales se descargan una vez desde Hugging Face (revisiones fijas, verificadas con SHA-256) en
+`%USERPROFILE%.whisperadesktopmodels`. El detector de voz Silero (1,2 MB) se descarga igual y corre en
+esta computadora con los dos motores: el audio en el que no detecta voz no se transcribe ni se envía.
+La voz de los videos y los archivos importados que no son WAV siguen usando Groq.
+
 ## English
 
 Whispera captures the default microphone when you start recording. Audio is written to local disk for
-recovery. When you request transcription, audio and active dictionary hints are sent to Groq over HTTPS.
+recovery. With the Groq engine, when you request transcription, audio and active dictionary hints are sent to Groq over HTTPS.
 With incremental transcription enabled, completed portions are sent while recording continues.
 Cancellation cannot retract portions already sent. Importing sends the selected audio. No audio is sent during the API key check.
 Transcripts are stored locally and may be copied/pasted according to your preferences.
@@ -24,7 +42,7 @@ No automatic update service or Whispera analytics is enabled.
 ## Español
 
 Whispera captura el micrófono predeterminado al iniciar una grabación y guarda audio en disco para
-recuperarlo. Al transcribir envía audio y vocabulario activo a Groq por HTTPS. Importar envía el archivo
+recuperarlo. Con el motor Groq, al transcribir envía audio y vocabulario activo a Groq por HTTPS. Importar envía el archivo
 elegido. Con transcripción anticipada activa, se envían fragmentos mientras seguís grabando;
 cancelar no puede retirar fragmentos ya enviados. La comprobación de clave no envía audio.
 Historial y texto permanecen localmente.

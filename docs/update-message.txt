@@ -1,4 +1,4 @@
-Capturas y grabaciones mucho más fluidas, sin parpadeos.
-Nuevo recuadro: borde fino visible en cualquier fondo y el resto atenuado.
-El video se ve igual que la captura y graba con la placa de video.
-Ctrl+C copia y cierra; el recuadro queda fijo al dibujar.
+Nueva guía inicial: elegí transcribir en tu PC (modelo local) o con Groq.
+Ya no hace falta una clave de Groq para empezar.
+Guía rediseñada con tu atajo listo para usar.
+README y privacidad actualizados con el motor local.

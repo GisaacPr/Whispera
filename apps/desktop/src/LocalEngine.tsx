@@ -11,7 +11,7 @@ type Status = { models: LocalModel[]; install: Install; device: string; loaded: 
 const size = (bytes: number) => bytes >= 1e9 ? `${(bytes / 1e9).toFixed(1)} GB` : `${Math.round(bytes / 1e6)} MB`;
 
 // Engine choice plus the on-device model catalog: install, progress, remove.
-export function LocalEngine({ settings, patch, onError }: { settings: Settings; patch: (value: Partial<Settings>) => void; onError: (message: string) => void }) {
+export function LocalEngine({ settings, patch, onError, onReady }: { settings: Settings; patch: (value: Partial<Settings>) => void; onError: (message: string) => void; onReady?: (ready: boolean) => void }) {
   const [status, setStatus] = useState<Status>();
   const engine = settings.transcriptionEngine ?? "groq";
   const selected = settings.localModel ?? "parakeet-v3";
@@ -30,6 +30,8 @@ export function LocalEngine({ settings, patch, onError }: { settings: Settings; 
   };
   const remove = (id: string) => void invoke("local_model_remove", { id }).then(refresh).catch(e => onError(String(e)));
   const ready = status?.models.find(m => m.id === selected)?.installed ?? false;
+  // Setup asks whether the chosen local model can already dictate.
+  useEffect(() => { onReady?.(ready); }, [ready]);
   return <div className="local-engine">
     <div className="engine-choice" role="radiogroup" aria-label="Motor de transcripción">
       <button role="radio" aria-checked={engine === "groq"} onClick={() => patch({ transcriptionEngine: "groq" })}><Cloud size={18} /><span><strong>Groq</strong><small>En la nube · necesita clave e internet</small></span></button>

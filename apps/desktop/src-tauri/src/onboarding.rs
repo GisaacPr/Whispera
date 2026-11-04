@@ -34,7 +34,13 @@ pub async fn set_startup(window: tauri::WebviewWindow, enabled: bool) -> Result<
 
 #[tauri::command]
 pub fn complete_setup(store: State<Store>) -> Result<(), String> {
-    groq::entry()?.get_password().map_err(|_| "Configure Groq first / Configura Groq primero")?;
+    // Either engine is enough: a Groq key, or a local model ready on this PC.
+    let settings: crate::storage::Settings = store.get("settings")?;
+    let local = settings.transcription_engine == "local"
+        && crate::local_asr::spec(&settings.local_model).is_some_and(crate::local_asr::installed);
+    if !local {
+        groq::entry()?.get_password().map_err(|_| "Configure Groq or install a local model / Configura Groq o instala un modelo local")?;
+    }
     store.put("setup_complete", &true)
 }
 

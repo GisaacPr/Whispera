@@ -6,32 +6,29 @@
 
 <p align="center">
   Voice dictation, screenshots and screen recording for Windows and macOS (beta).<br/>
-  Custom shortcuts, region annotations and clipboard output.
+  Transcribes on your PC with a local model or in the cloud with Groq, and pastes the text where you are typing.
 </p>
 
 <p align="center">
-  <a href="https://github.com/SikJa/Whispera/releases/latest/download/Whispera-setup.exe"><kbd>⬇ Download latest version · Windows</kbd></a>&ensp;·&ensp;
+  <a href="https://github.com/SikJa/Whispera/releases/latest/download/Whispera-setup.exe"><kbd>Download for Windows</kbd></a>&ensp;·&ensp;
   <a href="README.md">Español</a>&ensp;·&ensp;
-  <a href="https://console.groq.com/keys">Get a Groq key</a>&ensp;·&ensp;
   <a href="docs/PRIVACY.md">Privacy</a>
 </p>
 
----
+<p align="center">The button downloads the Windows installer directly.<br/>If you already have Whispera, the update appears in <strong>Settings → Updates</strong>.</p>
 
 ## Downloads by platform
 
-| Platform | Installer | Compressed app, no installer |
+| Platform | Installer | Zipped app, no installer |
 | --- | --- | --- |
-| Stable Windows | [EXE installer](https://github.com/SikJa/Whispera/releases/latest/download/Whispera-setup.exe) | Not included |
-| macOS 13+ · Apple Silicon · beta 2 | [DMG](https://github.com/SikJa/Whispera/releases/download/v0.3.0-beta.2/Whispera_0.3.0-beta.2_aarch64.dmg) | [Whispera.app ZIP](https://github.com/SikJa/Whispera/releases/download/v0.3.0-beta.2/Whispera_0.3.0-beta.2_aarch64.app.zip) |
-| macOS 13+ · Intel · beta 2 | [DMG](https://github.com/SikJa/Whispera/releases/download/v0.3.0-beta.2/Whispera_0.3.0-beta.2_x86_64.dmg) | [Whispera.app ZIP](https://github.com/SikJa/Whispera/releases/download/v0.3.0-beta.2/Whispera_0.3.0-beta.2_x86_64.app.zip) |
+| Windows stable | [EXE installer](https://github.com/SikJa/Whispera/releases/latest/download/Whispera-setup.exe) | Not included |
+| macOS 13+ · Apple Silicon · beta 5 | [DMG](https://github.com/SikJa/Whispera/releases/download/v0.3.0-beta.5/Whispera_0.3.0-beta.5_aarch64.dmg) | [ZIP with Whispera.app](https://github.com/SikJa/Whispera/releases/download/v0.3.0-beta.5/Whispera_0.3.0-beta.5_aarch64.app.zip) |
+| macOS 13+ · Intel · beta 5 | [DMG](https://github.com/SikJa/Whispera/releases/download/v0.3.0-beta.5/Whispera_0.3.0-beta.5_x86_64.dmg) | [ZIP with Whispera.app](https://github.com/SikJa/Whispera/releases/download/v0.3.0-beta.5/Whispera_0.3.0-beta.5_x86_64.app.zip) |
 
-**[Dedicated macOS 0.3.0-beta.2 release](https://github.com/SikJa/Whispera/releases/tag/v0.3.0-beta.2).**
-The ZIP uses the same profile directories and Keychain as the DMG; it is not a self-contained data profile.
-It preserves Cristal, Groq and the shared interface, with native Mac integrations.
-See [installation and permissions](docs/MACOS.md) and [preview release notes](docs/releases/0.3.0-beta.2.md).
-Tested on macOS runners, without physical-Mac validation or Apple notarization.
-The preview uses its own update channel and does not replace stable Windows releases.
+The macOS beta uses a separate update channel and does not include the local engine yet.
+See [installation and permissions](docs/MACOS.md) and [the beta notes](docs/releases/0.3.0-beta.5.md).
+
+---
 
 <p align="center">
   <img src="docs/screenshots/recorder-active.png" width="360" alt="Floating recorder in action" />
@@ -39,188 +36,155 @@ The preview uses its own update channel and does not replace stable Windows rele
   <img src="docs/screenshots/settings-dark.png" width="420" alt="Settings panel" />
 </p>
 
-## What is it?
+## What it is
 
-When switching from Whispera-K or an older SikJa version without the updater, install this version once using the download button. Your profile is preserved and future updates use SikJa's own signing key.
+Whispera is a desktop app that turns your voice into text. It appears as a floating folder
+over any window: press the shortcut, speak, and the text is pasted into the field you were
+typing in. It also includes a clipboard with history, screenshots with an editor and
+region video recording.
 
-**Whispera** unifies dictation, clipboard history, screenshots and screen recording.
-This update also integrates work from the
-[Whispera-K fork](https://github.com/kazu00001/Whispera-K), preserving its history and credits.
-Whispera remains MIT-licensed; third-party components retain their own licenses.
+It includes the work of Kazu's [Whispera-K](https://github.com/kazu00001/Whispera-K) fork,
+with its history and credits.
 
-Whispera is a desktop app for Windows and macOS (beta) that turns your voice into text using [Groq](https://groq.com).
-It shows up as a **transparent floating folder** on top of any window. Record, transcribe, and auto-paste — all from a keyboard shortcut.
+## Two ways to transcribe
 
-- 🎙️ **No local models** — uses the Groq API (Whisper Large V3 Turbo)
-- 🔑 **Your own key** — no Whispera account, no server of ours
-- 🪟 **Native on Windows** — Tauri + Rust + React, with FFmpeg included for video
-- 🌐 **Spanish & English** — interface, installer and setup wizard are bilingual
+You pick the engine in the first-run guide and can change it anytime in **Settings → Transcription**.
+
+| | Local | Groq |
+|---|---|---|
+| Where it runs | On your PC, on the graphics card (Vulkan) or the CPU | In Groq's cloud |
+| Internet | Not needed | Required |
+| Account | None | Your own key from [console.groq.com](https://console.groq.com/keys) |
+| Audio leaves your computer | No | Yes, to Groq over HTTPS |
+| Speed on a GTX 1660 Ti | 12 s of audio in about 0.3 s | Depends on your connection |
+| Models | Parakeet v3 (740 MB) or Whisper large-v3-turbo (886 MB) | Whisper Large V3 and Turbo |
+
+Local models are downloaded from the app only if you choose them, and are verified with
+SHA-256 before use. **Parakeet v3** is the fastest and detects the language by itself.
+**Whisper turbo** locks the language and handles very short phrases better.
+
+With both engines:
+
+- **Silero speech detector:** if you did not speak (a bump on the microphone, a click, room
+  noise), nothing is transcribed, so no invented "Thank you" or "Ss." appears.
+- **The ending is not clipped:** 200 ms more is recorded after you release the shortcut.
+- **Personal dictionary:** names and terms corrected when transcribing.
+- **Empty takes:** pressing by mistake without speaking keeps your last text.
 
 ## Features
 
-[Version 0.2.6](docs/releases/0.2.6.md) adds draggable and resizable capture
-borders for screenshots and video, preserving the rounded design and existing
-annotations. Video reframing has a brief transition between recording segments.
-
 | | |
 |---|---|
-| 🎨 **Customizable folder** | Color, scale, control placement, animations |
-| ⏸️ **Pause & cancel** | With confirmation and system audio restore |
-| 📂 **Transcribe files** | Open an audio file and transcribe it without recording |
-| 📖 **Personal dictionary** | Names and terms the recognizer should respect |
-| 📋 **History** | Every transcription, editable and copyable |
-| 🔊 **Sounds** | Custom start/stop themes (cristal, marimba, pop…) |
-| 💾 **Recovery** | Audio saved progressively, per-segment retries |
-| 🚀 **Start with Windows** | Launches hidden in the system tray |
-| 🎬 **Region video** | Select, record and finish with the same shortcut or Escape; MP4/H.264 at 30 FPS |
-| 🖼️ **PNG screenshots** | Native lossless resolution; edit or copy immediately on release |
-| ✏️ **Annotations** | Pen, line, arrow, rectangle, highlighter, text and rounded blur; undo/redo |
-| ⌨️ **Press-to-set shortcuts** | Dictation, screenshots and video together in Shortcut settings |
-| 🔈 **Video audio** | None, system, microphone or both; saved as your preference |
-| 🕘 **Recent captures** | Copy any of the last 12 results again from History |
-| ⏯️ **Video controls** | Pause, resume and discard; fixed side tools and controls below the capture |
+| Floating folder | Colour, scale, control placement, 3D folder and animations |
+| Pause and cancel | With confirmation and system audio restore |
+| Transcribe files | Open an audio file and transcribe it without recording |
+| History | Every transcript, editable and copyable |
+| Clipboard | Text, links, images, videos and files; closes with a click outside |
+| PNG screenshots | Native resolution, annotation editor, direct copy on release |
+| Region video | MP4/H.264 at 30 FPS, system and/or microphone audio, double Esc to finish |
+| Replay | Saves the last seconds of the screen, off by default |
+| Shortcuts | Dictation, image, video and clipboard in Settings → Shortcuts |
+| Start with Windows | Starts hidden in the tray |
+| Recovery | Audio saved progressively and per-part retries |
 
-The capture frame defaults to white and has its own color setting. The folder
-hides after completed dictation even if no paste target was available. Edits
-to past transcriptions can be saved.
+The MP4 is copied as a file: pasting it with **Ctrl+V** depends on the target application
+accepting files. [Capture and video guide](docs/SCREEN_RECORDING.md).
 
-Initial setup includes the illustrated Groq key guide. Its setup entry disappears
-after completion; all regular preferences remain available in Settings.
+## Install on Windows
 
-MP4 is copied as a file: **Ctrl+V** works in destination apps that accept file
-pasting. A local temporary copy keeps the clipboard valid.
-[Screenshot and video guide, in Spanish](docs/SCREEN_RECORDING.md).
-
-## Install On Windows
-
-1. Download `Whispera_*_x64-setup.exe` from [Releases](https://github.com/SikJa/Whispera/releases)
-2. Install for your user — no admin rights needed
-3. First launch opens a **4-step setup wizard**:
+1. Download the [installer](https://github.com/SikJa/Whispera/releases/latest/download/Whispera-setup.exe).
+2. Install for your user; no administrator rights needed.
+3. The first time, a four-step guide opens:
 
 | Step | What you do |
 |:---:|---|
-| 🛡️ | **Privacy** — Review how your audio and data are handled |
-| 🔑 | **Groq** — Create your key at [console.groq.com/keys](https://console.groq.com/keys) and validate it |
-| 🎤 | **Preferences** — Choose microphone, language, shortcut and auto-paste |
-| ✅ | **Ready** — Whispera minimizes to the tray, ready to dictate |
+| 1. Privacy | See what happens to your audio with each engine |
+| 2. Engine | Choose **Local** and install a model, or **Groq** and save your key (with an illustrated guide) |
+| 3. Preferences | Microphone, language, shortcut, auto-paste and start with Windows |
+| 4. Ready | See your shortcut; Whispera stays in the tray |
 
-4. Click a text field, press `Ctrl+Shift+Space`, speak, and press again
+4. Click a text field, press the shortcut (`Ctrl+Shift+Space` by default), speak and press it again.
 
----
-
-### 🔑 How to get your Groq key (step by step)
+Local mode uses the graphics card when its driver has Vulkan (an up-to-date NVIDIA, AMD or
+Intel driver); Whispera still opens without one and tells you if local mode cannot run.
 
 <details>
-<summary>See guide with screenshots</summary>
+<summary>How to get a Groq key, step by step</summary>
 
 <br/>
 
-**Step 1 — Create a Groq account**
-
-Go to [console.groq.com](https://console.groq.com) and sign up with Google or your email. It's free.
+**1. Create an account.** Go to [console.groq.com](https://console.groq.com) and sign up with Google or your email.
 
 <img src="docs/groq-setup/01-login.png" width="520" alt="GroqCloud login page" />
 
-<br/><br/>
-
-**Step 2 — Go to API Keys**
-
-Once logged in, click **API Keys** in the navigation menu.
+**2. Open API Keys** from the navigation menu.
 
 <img src="docs/groq-setup/02-api-keys.png" width="520" alt="Groq API Keys page" />
 
-<br/><br/>
-
-**Step 3 — Create a new key**
-
-Click the **Create API Key** button.
+**3. Create a new key** with the **Create API Key** button.
 
 <img src="docs/groq-setup/03-create-key.png" width="520" alt="Create API Key button" />
 
-<br/><br/>
+**4. Name it**, for example "Whispera", and confirm.
 
-**Step 4 — Name your key**
+<img src="docs/groq-setup/04-name-key.png" width="520" alt="Dialog to name the API key" />
 
-Type a name for your key (e.g. "Whispera") and confirm.
-
-<img src="docs/groq-setup/04-name-key.png" width="520" alt="Name dialog for the API Key" />
-
-<br/><br/>
-
-**Step 5 — Copy the key**
-
-Your key is shown only once. Copy it and paste it in Whispera. It starts with `gsk_`.
+**5. Copy the key** and paste it into Whispera. It starts with `gsk_` and Groq shows it only once.
 
 <img src="docs/groq-setup/05-copy-key.png" width="520" alt="Generated API key to copy" />
 
-<br/><br/>
-
-> ⚠️ **Important:** the key is not shown again. If you lose it, create a new one.
-
 </details>
-
----
 
 ## What each user configures
 
-Version 0.2.0 adds a unified clipboard library (text, links, images, videos and
-files), native drag, search, groups, pins, retention controls and its own shortcut.
-The image editor combines captures on a canvas with original backgrounds, blur,
-custom colors, padding, corners and shadows. Capture uses native in-memory frames,
-preserves open menus, adds compact Line tools and more shapes, and supports PNG
-snapshots during video. Video controls disappear while finalization runs in the
-background. Long dictation can transcribe completed chunks while you keep talking.
-
-Optional microphone transcription adds a TXT companion to videos. Whether a target
-app inserts that text inline depends on which clipboard/drop formats it accepts.
-See [release notes and limitations](docs/releases/0.2.0.md).
-
-| Setting | Required? | Details |
+| Setting | Required | Detail |
 |---|:---:|---|
-| **Groq API key** | Yes | Stored in Windows Credential Manager, never in files |
-| **Microphone** | — | Uses the Windows default; check permissions |
-| **Shortcut** | — | `Ctrl+Shift+Space` by default, customizable |
-| **Audio language** | — | Spanish by default; English, Portuguese or auto |
-| **Auto-paste** | — | Enabled by default; you can copy-only instead |
-| **Start with Windows** | — | Optional, launches in the tray |
-| **Dictionary** | — | Starts empty; add your words later |
-| **Color & sounds** | — | Optional, several built-in themes |
+| Engine | Yes | Local (with an installed model) or Groq (with a key) |
+| Groq key | Groq only | Stored in Windows Credential Manager, never in files |
+| Local model | Local only | Parakeet v3 or Whisper turbo, downloaded from the app |
+| Microphone | — | The Windows default or a chosen one |
+| Shortcut | — | `Ctrl+Shift+Space` by default |
+| Audio language | — | Spanish by default; English, Portuguese or automatic |
+| Auto-paste | — | On by default |
+| Start with Windows | — | Optional, starts in the tray |
+| Dictionary | — | Empty at first |
 
 ## Privacy
 
-- Audio and dictionary vocabulary are sent to **Groq** when transcribing (HTTPS)
-- Your key is stored in **Windows Credential Manager**, not in text files
-- Local data stays in `%APPDATA%\app.whispera.desktop.preview` and `%LOCALAPPDATA%\app.whispera.desktop.preview`
-- **No Whispera server** — no analytics, no telemetry, no account
-- Completed/cancelled audio and eligible history expire after 48 hours. The library
-  has separate retention settings and preserves pins. Use incognito for sensitive content.
+- **Local:** audio is processed on your PC and never leaves your computer.
+- **Groq:** audio and dictionary vocabulary are sent to Groq over HTTPS with your account.
+- The Groq key is stored in Windows Credential Manager.
+- Local data in `%APPDATA%\app.whispera.desktop.preview` and models in `%USERPROFILE%\.whispera\desktop\models`.
+- There is no Whispera server: no analytics, no telemetry, no account.
 
-More → [docs/PRIVACY.md](docs/PRIVACY.md)
+More in [docs/PRIVACY.md](docs/PRIVACY.md).
 
 ## Development
 
-Requirements: Windows, Node.js 22+, Rust stable (MSVC), C++ Build Tools, WebView2.
+Requirements: Windows, Node.js 22+, Rust stable (MSVC), C++ Build Tools, WebView2,
+[CMake](https://cmake.org) and the [Vulkan SDK](https://vulkan.lunarg.com) to build the local engine.
 
 ```bash
 cd apps/desktop
 npm ci
 npm ci --ignore-scripts --prefix vendor/edge-drop
 npm run build          # includes the clipboard renderer
-npm run desktop        # dev with hot-reload
+npm run desktop        # development with reload
 ```
 
 ```bash
-npm run tauri build -- --bundles nsis    # generate installer
+npm run tauri build -- --bundles nsis    # installer
 cd src-tauri && cargo test --locked      # Rust tests
 ```
 
-The installer is generated at `src-tauri/target/release/bundle/nsis/`.
+`VULKAN_SDK` must point to the installed SDK (for example `C:\VulkanSDK\1.4.363.0`).
+The installer is written to `src-tauri/target/release/bundle/nsis/`.
 
-After building, run `npx playwright install chromium` and `npm run test:release`.
-The suites use an isolated server, silent headless browsers, synthetic media and
-mocked native IPC. Real microphone/paste checks are separate opt-in tests.
+Release tests run with `npx playwright install chromium` and `npm run test:release` after
+building. They use mocked IPC and synthetic files: they do not test the real microphone or
+pasting into other applications.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
-Third-party attributions at [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+MIT, see [LICENSE](LICENSE). Third-party attributions, including the local models, are in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
