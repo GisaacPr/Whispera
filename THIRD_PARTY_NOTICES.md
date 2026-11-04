@@ -14,6 +14,8 @@
 
 ## Other components / Otros componentes
 
+- What's new card (`apps/desktop/src/whats-new/`): designed by Kevin for Syka Legacy (commit 13a3419), ported
+  with its drawings and CSS unchanged; content and imports adapted for Whispera.
 
 - Rare UI folder: Swami Malode, MIT. Original license: `apps/desktop/vendor/LICENSE`.
   https://github.com/swamimalode07/rare-ui . Preserved source and adapted ControlledFolder.

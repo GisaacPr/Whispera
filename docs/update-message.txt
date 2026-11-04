@@ -1,4 +1,3 @@
-Nueva guía inicial: elegí transcribir en tu PC (modelo local) o con Groq.
-Ya no hace falta una clave de Groq para empezar.
-Guía rediseñada con tu atajo listo para usar.
-README y privacidad actualizados con el motor local.
+Nueva tarjeta de Novedades: te muestra lo nuevo de cada versión al abrir Configuración.
+Volvé a verla cuando quieras en Actualizaciones › Ver novedades.
+Incluye el motor local, la nueva guía inicial y las capturas de Kazu.

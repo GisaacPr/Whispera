@@ -36,6 +36,7 @@ import "./desktop.css";
 import { SetupGate } from './Onboarding';
 import GroqKeyGuide from './GroqKeyGuide';
 import { LocalEngine } from "./LocalEngine";
+import { WhatsNewHost } from "./whats-new/WhatsNewHost";
 import { MicrophoneSelect } from './MicrophoneSelect';
 import { ShortcutSettings, CaptureHistory } from './CaptureSettings';
 import LibrarySettings from './LibrarySettings';
@@ -128,6 +129,7 @@ function SettingsApp({sidebarExpanded}:{sidebarExpanded:boolean}) {
   const title = routes.find(r => r.id === route)!.name;
 
   return <div className="desktop-app">
+    <WhatsNewHost version={updater.status.currentVersion} onOpenSettings={section=>setRoute(section)} />
     <SettingsSidebar items={routes} value={route} expanded={sidebarExpanded} count={data.rules.length} badges={{updates:updater.status.version?'Nueva':undefined}}
       onChange={id=>{setRoute(id as Route);setSearch('');setMessage('');}}
       brand={<a className="desktop-brand" href="?view=settings"><span className="brand-mark"><img src="/cristal/64x64.png" alt="" /></span><span className="brand-copy"><strong>Whispera</strong><small>Voz, capturas y video</small></span></a>}

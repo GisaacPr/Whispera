@@ -47,3 +47,7 @@
 .upstream-updates h3{display:flex;align-items:center;gap:12px}
 .upstream-avatar{display:grid;place-items:center;width:32px;height:32px;flex-shrink:0;border-radius:10px;font-size:14px;font-weight:700;color:#d8cfe8;background:#ffffff10}
 @media(max-width:640px){.updates-panel .update-app-row{flex-wrap:wrap}.update-state{order:3}}
+/* Ver novedades: quiet, next to Buscar actualizaciones; out of the way while updating. */
+.updates-panel .update-whats-new{background:transparent;border-color:transparent;color:var(--app-muted,#b8b8be)}
+.updates-panel .update-whats-new:hover{color:var(--app-ink,#f4f3ef);background:#ffffff0d}
+.updates-panel[data-updating=true] .update-whats-new{display:none}

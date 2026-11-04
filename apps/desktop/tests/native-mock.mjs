@@ -1,7 +1,9 @@
-export function installNativeMock({kind='video',width=640,height=480,scale=1,setupComplete=true,selectionPhase,frozenImage,adjustable=false,windowLabel}={}) {
+export function installNativeMock({kind='video',width=640,height=480,scale=1,setupComplete=true,selectionPhase,frozenImage,adjustable=false,windowLabel,whatsNew=false}={}) {
   const view=new URLSearchParams(location.search).get('view');
   const label=windowLabel??(view==='screen-select'?'screen-select-0':view==='screen-freeze'?'screen-freeze-0':view?.startsWith('screen-')?view:'main');
   window.updateStatus={currentVersion:'0.2.15',version:null,notes:'',phase:'idle',downloaded:0,total:null,error:''};
+  // The What's new card opens by itself for an unseen version; only its own suite wants that.
+  if(!whatsNew){try{localStorage.setItem('whispera.whatsNew.seen',window.updateStatus.currentVersion);}catch{}}
   window.calls=[]; const callbacks=new Map(), listeners=new Map();let next=1;
   window.videoPreferences={audio:'none',hotkey:'Control+Shift+F9',image_hotkey:'Control+Shift+F10',frame_color:'#ffffff',image_auto_copy:false};
   window.voiceShortcut='Alt+KeyZ';
