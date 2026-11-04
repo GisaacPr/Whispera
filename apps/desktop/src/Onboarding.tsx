@@ -64,6 +64,7 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
   const labels = [t('Privacidad', 'Privacy'), t('Motor', 'Engine'), t('Preferencias', 'Preferences'), t('Listo', 'Ready')];
   const where = isMac ? t('esta Mac', 'this Mac') : t('esta PC', 'this PC');
   const tray = isMac ? t('la barra de menús', 'the menu bar') : t('la bandeja', 'the tray');
+  const store = isMac ? t('el Keychain de macOS', 'macOS Keychain') : t('el almacén de credenciales de Windows', 'Windows Credential Manager');
   return <main className="setup-shell" lang={lang}>
     <header className="setup-head">
       <img src="/cristal/64x64.png" alt="" width="32" height="32" />
@@ -81,7 +82,7 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
         <ul className="setup-facts">
           <li><Cpu size={16} strokeWidth={1.5} /><span><strong>{t('Local', 'Local')}</strong>{t(`El modelo corre en ${where}. El audio no sale de tu equipo y funciona sin internet.`, `The model runs on ${where}. Audio never leaves your computer and it works offline.`)}</span></li>
           <li><Cloud size={16} strokeWidth={1.5} /><span><strong>Groq</strong>{t('El audio y las palabras de tu diccionario van a Groq con tu propia cuenta. Sus límites y condiciones aplican.', 'Audio and your dictionary words go to Groq with your own account. Its limits and terms apply.')}</span></li>
-          <li><HardDrive size={16} strokeWidth={1.5} /><span><strong>{t('En tu equipo', 'On your computer')}</strong>{t(`Grabaciones e historial quedan en ${where} para recuperarlos. La clave de Groq, si la usás, se guarda en ${credentialStore}.`, `Recordings and history stay on ${where} for recovery. A Groq key, if you use one, is stored in ${credentialStore}.`)}</span></li>
+          <li><HardDrive size={16} strokeWidth={1.5} /><span><strong>{t('En tu equipo', 'On your computer')}</strong>{t(`Grabaciones e historial quedan en ${where} para recuperarlos. La clave de Groq, si la usás, se guarda en ${store}.`, `Recordings and history stay on ${where} for recovery. A Groq key, if you use one, is stored in ${store}.`)}</span></li>
         </ul>
         <p className="setup-quiet">{t(`Sin cuenta de Whispera. Podés salir desde el icono de ${tray}.`, `No Whispera account. Quit from the icon in ${tray}.`)}</p>
       </>}
@@ -95,7 +96,7 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
             <input id="setup-key" type="password" autoComplete="off" spellCheck={false} value={key} onChange={e => setKey(e.target.value)} placeholder="gsk_..." />
             <button className="setup-secondary" disabled={busy || !key.trim() || !api.native} onClick={() => void run(async () => { await invoke('validate_key', { key }); setKey(''); setConfigured(true); })}>{configured ? t('Actualizar clave', 'Update key') : t('Validar y guardar', 'Validate and save')}</button>
           </div>
-          <p className="setup-quiet">{configured ? <><Check size={14} /> {t(`Clave guardada en ${credentialStore}`, `Key saved in ${credentialStore}`)}</> : t('La comprobación consulta los modelos disponibles; no envía audio.', 'Validation checks available models; it does not send audio.')}</p>
+          <p className="setup-quiet">{configured ? <><Check size={14} /> {t(`Clave guardada en ${credentialStore}`, isMac ? 'Key saved in macOS Keychain' : 'Key saved in Windows')}</> : t('La comprobación consulta los modelos disponibles; no envía audio.', 'Validation checks available models; it does not send audio.')}</p>
           <GroqKeyGuide lang={lang} />
           {!api.native && <p className="setup-quiet">{t('Vista previa: las claves solo se introducen en la app instalada.', 'Preview: enter keys only in the installed app.')}</p>}
         </div>}
@@ -103,7 +104,7 @@ export default function Onboarding({ onDone }: { onDone: () => void }) {
       {step === 2 && settings && <>
         <h1>{t('Prepará tu primer dictado', 'Prepare your first dictation')}</h1>
         <div className="setup-device">
-          <span>{t(`Micrófono de ${systemName}`, `${systemName} microphone`)}<strong>{info?.microphone ?? t('No detectado', 'Not detected')}</strong></span>
+          <span>{t(`Micrófono predeterminado de ${systemName}:`, `${systemName} default microphone:`)}<strong>{info?.microphone ?? t('No detectado', 'Not detected')}</strong></span>
           <button className="setup-ghost" disabled={busy} onClick={() => void run(load)}>{t('Actualizar dispositivos', 'Refresh devices')}</button>
         </div>
         <p className="setup-quiet">{t(`Esto detecta el dispositivo, no la señal. Revisá el permiso de micrófono de ${systemName} y probá una frase breve al terminar.`, `This detects the device, not the signal. Check ${systemName} microphone permissions and try a short phrase after setup.`)}</p>
